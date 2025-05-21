@@ -1,0 +1,310 @@
+html,
+body {
+  cursor: none;
+  /* hide native */
+}
+
+.cursor {
+  position: fixed;
+  /* fixed to viewport */
+  top: 0;
+  left: 0;
+  width: 35px;
+  height: 35px;
+  background: #ffe066;
+  border-radius: 50%;
+  pointer-events: none;
+  /* always let mouse events through */
+  z-index: 9999;
+  mix-blend-mode: difference;
+  /* optional funky effect */
+  transform: translate3d(0, 0, 0);
+  /* transition: background 0.2s, transform 0.15s; */
+  will-change: transform;
+}
+
+/* .cursor {
+  position: fixed;
+  top: 0; left: 0;
+  width: 35px;
+  height: 35px;
+  background: #ffe066;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate3d(0,0,0);
+} */
+
+.header_comp {
+  height: 60px;
+  position: fixed;
+  /* background: #ffffffb0; */
+  border-bottom: 1px solid #000;
+  z-index: 100;
+
+  ul {
+    .owner_name {
+      border-radius: 7.5px;
+    }
+
+    .soundtrip {
+      border-radius: 7.5px;
+    }
+  }
+}
+
+.three-wrapper {
+  position: relative;
+  /* total scrollable height = pin-distance (300vh) + viewport (100vh) */
+  height: 400vh;
+}
+
+.three-wrapper>.three_page-comp {
+  /* now pin via CSS instead of GSAP inserting fixed */
+  position: sticky;
+  top: 0;
+}
+
+.three_page-comp {
+  background: #ffffff;
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  .title_lt_side,
+  .title_rt_side {
+    z-index: 2;
+    font-size: 30px;
+    position: absolute;
+    font-style: italic;
+    font-weight: 300;
+    padding: 12.5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    h1 {
+      /* opacity: 0; */
+      /* display: none; */
+      font-family: 'Inter', sans-serif;
+    }
+
+    .absolute {
+      color: #000;
+      mix-blend-mode: difference;
+      z-index: 2;
+      transform: translateX(30px) translateY(10px);
+
+      /* left: 10%; */
+    }
+  }
+
+  .title_lt_side {
+    left: 10%;
+    top: 15%;
+  }
+
+  .title_rt_side {
+    right: 10%;
+    top: 15%;
+  }
+}
+
+canvas {
+  width: 100%;
+  height: 100%;
+  min-height: 100vh;
+  position: relative;
+  background: #fff;
+  margin: 0;
+  padding: 0;
+}
+
+.projects-comp {
+  min-height: 100vh;
+  padding: 20px;
+  background: white;
+  /* scroll-snap-type: y proximity; */
+
+  /* z-index: 100; */
+  .lines {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-evenly;
+    gap: 10px;
+
+    .line {
+      width: 15px;
+      height: 40px;
+      background: black;
+
+      &:nth-child(even) {
+        background: #4a86ff;
+      }
+    }
+
+  }
+
+  .proj_title {
+    font-size: 30px;
+    padding: 7.5px;
+    padding-top: 50px;
+  }
+
+  .proj_search_area {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+
+    .search-input {
+      width: 200px;
+      padding: 7px 14px;
+      font-size: 17px;
+      font-family: 'Arial Rounded MT Bold', Arial, sans-serif;
+      border: none;
+      border-radius: 24px;
+      background: linear-gradient(90deg, #fff564 0%, #fffbe8 100%);
+      box-shadow: 0 2px 4px 0 rgba(228, 207, 45, 0.615), 0 0 0 0px #ffe066 inset;
+      outline: none;
+      color: #444;
+      transition: box-shadow 0.2s;
+
+      &::placeholder {
+        color: #bdb76b;
+        font-style: italic;
+        letter-spacing: 0.03em;
+      }
+
+      &:focus {
+        box-shadow: 0 2px 12px 0 rgba(228, 207, 45, 0.615), 0 0 0 2px #ffe066 inset;
+      }
+    }
+  }
+
+  .item_projects {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(30vw, 1fr));
+    gap: 1.5rem;
+    padding: 10px;
+
+    .item {
+      /* scroll-snap-align: start; */
+      display: grid;
+      grid-template-columns: 35% 65%;
+      position: relative;
+      overflow: hidden;
+      border: 1.5px solid #4C94FF;
+      width: 30vw;
+      /* height: 200px; */
+      border-radius: 10px;
+      box-shadow: 0px 4px 10px hsla(232, 100%, 65%, 0.349);
+      z-index: 2;
+      padding: 10px 15px;
+
+      opacity: 0;
+      /* transform: translateY(50px); */
+
+      &::after,
+      &::before {
+        z-index: -1;
+        content: '';
+        position: absolute;
+        width: 10vw;
+        height: 10vw;
+        background: linear-gradient(90deg,
+            #ffffff 0%,
+            #9a9fff 26%,
+            #71a2ff 55%,
+            #1966d8 82%,
+            #2054ff 100%);
+        border-radius: 50%;
+        filter: blur(6.5px);
+      }
+
+      &::after {
+        top: -25%;
+        left: -10%;
+      }
+
+      &::before {
+        bottom: -25%;
+        left: 25%;
+      }
+
+      .tit_ls {
+        font-size: 25px;
+      }
+
+      .list_stacks {
+        display: grid;
+        /* background: orange; */
+        grid-template-columns: repeat(3, auto);
+        gap: 7.5px;
+
+        svg,
+        img {
+          width: 35px;
+          height: 35px;
+          padding: 5px;
+          border: 1px solid #000;
+        }
+      }
+
+      .it_ls {
+        height: 100%;
+        /* background: orange; */
+
+      }
+
+      .it_rs {
+        width: 100%;
+        height: 100%;
+        padding: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+
+        img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .after {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: calc(100% - 20px);
+          height: 0%;
+          position: absolute;
+          background: linear-gradient(90deg, #ffffff5e 0%, #4d89e2bb 100%);
+          overflow: hidden;
+          top: 50%;
+          left: 10px;
+          transition: all 0.75s cubic-bezier(0.445, 0.05, 0.55, 0.95);
+
+          svg {
+            cursor: pointer;
+            width: 25px;
+            height: 25px;
+          }
+        }
+
+        &:hover {
+          .after {
+            height: calc(100% - 20px);
+            /* left: calc(0% + 10px); */
+            top: calc(0% + 10px);
+          }
+        }
+      }
+
+    }
+  }
+
+}

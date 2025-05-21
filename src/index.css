@@ -1,0 +1,14 @@
+@import url('https://fonts.googleapis.com/css2?family=Inria+Sans:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Jura:wght@300..700&family=Kode+Mono:wght@400..700&family=Krona+One&family=Liu+Jian+Mao+Cao&family=Sevillana&display=swap');
+
+@import "tailwindcss";
+
+*,
+body {
+  margin: 0;
+  box-sizing: border-box;
+  font-family: "Kode Mono", monospace;
+}
+
+body {
+  padding: 0;
+}
