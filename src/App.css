@@ -23,18 +23,6 @@ body {
   will-change: transform;
 }
 
-/* .cursor {
-  position: fixed;
-  top: 0; left: 0;
-  width: 35px;
-  height: 35px;
-  background: #ffe066;
-  border-radius: 50%;
-  pointer-events: none;
-  z-index: 9999;
-  transform: translate3d(0,0,0);
-} */
-
 .header_comp {
   height: 60px;
   position: fixed;
@@ -56,14 +44,9 @@ body {
 .three-wrapper {
   position: relative;
   /* total scrollable height = pin-distance (300vh) + viewport (100vh) */
-  height: 400vh;
+  /* height: 400vh; */
 }
 
-.three-wrapper>.three_page-comp {
-  /* now pin via CSS instead of GSAP inserting fixed */
-  position: sticky;
-  top: 0;
-}
 
 .three_page-comp {
   background: #ffffff;
@@ -76,7 +59,7 @@ body {
   .title_lt_side,
   .title_rt_side {
     z-index: 2;
-    font-size: 30px;
+    font-size: 28px;
     position: absolute;
     font-style: italic;
     font-weight: 300;
@@ -192,6 +175,18 @@ canvas {
     padding: 10px;
 
     .item {
+      --pseudo-opacity: 0;
+      --pseudo-scale: 0.3;
+      
+      // Start ::before from bottom-right-ish, moving to its final bottom-left
+      --before-translateX: 50%; 
+      --before-translateY: 50%;
+      
+      // Start ::after from top-left-ish, moving to its final top-left
+      --after-translateX: -50%;
+      --after-translateY: -50%;
+
+
       /* scroll-snap-align: start; */
       display: grid;
       grid-template-columns: 35% 65%;
@@ -205,7 +200,9 @@ canvas {
       z-index: 2;
       padding: 10px 15px;
 
-      opacity: 0;
+      /* opacity: 0; */
+      opacity: var(--pseudo-opacity);
+
       /* transform: translateY(50px); */
 
       &::after,
@@ -228,11 +225,15 @@ canvas {
       &::after {
         top: -25%;
         left: -10%;
+        transform: scale(var(--pseudo-scale)) translate(var(--after-translateX), var(--after-translateY));
+
       }
 
       &::before {
         bottom: -25%;
         left: 25%;
+        transform: scale(var(--pseudo-scale)) translate(var(--before-translateX), var(--before-translateY));
+
       }
 
       .tit_ls {

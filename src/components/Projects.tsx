@@ -2,10 +2,10 @@ import React, { useMemo, useState, useRef, useEffect, useLayoutEffect } from 're
 import gsap from 'gsap';
 import ScrollTrigger from 'gsap/ScrollTrigger';
 import svg1 from './s1.svg';
+import { useGSAP } from '@gsap/react';
 
 gsap.registerPlugin(ScrollTrigger);
-// Force ScrollTrigger to use the window — even if you have other scroll containers
-ScrollTrigger.defaults({ scroller: window })
+
 
 interface SearchInputProps {
   value: string;
@@ -191,11 +191,25 @@ const ALL_PROJECTS: Project[] = [
 
 const Projects: React.FC = () => {
     const [search, setSearch] = useState('');
-    const itemRefs = useRef<Array<HTMLDivElement | null>>([]);
+    const projectsContainerRef = useRef<HTMLDivElement | null>(null); // Ref for the .projects-comp
+    const itemContainerRef = useRef<HTMLDivElement | null>(null); // Ref for the .item_projects grid
+    const itemRefs = useRef<Array<HTMLDivElement | null>>([]); // For hover effects
+    const linesContainerRef = useRef<HTMLDivElement | null>(null); // Ref for the .lines container
+
+    const [isReadyForScrollTrigger, setIsReadyForScrollTrigger] = useState(false);
 
     const handleOnChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setSearch(e.target.value);
     };
+
+    // Effect to signal readiness after a delay, allowing ThreePage to settle
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsReadyForScrollTrigger(true);
+        }, 500); // Increased delay - adjust as needed. Try even 1000ms for testing.
+        return () => clearTimeout(timer);
+    }, []);
+
 
     const filteredProjects = useMemo(() => {
         const term = search.trim().toLowerCase();
@@ -204,115 +218,170 @@ const Projects: React.FC = () => {
         : ALL_PROJECTS.filter(p => p.title.toLowerCase().includes(term));
     }, [search]);
 
-    useLayoutEffect(() => {
-        // Kill any existing triggers
-        ScrollTrigger.getAll().forEach(t => t.kill())
+    useGSAP(() => {
+        // Only run if the component has signaled it's ready and refs are set
+        if (!isReadyForScrollTrigger || !itemContainerRef.current || !projectsContainerRef.current) return;
 
-        // Grab only the real DOM nodes
-        const els = itemRefs.current
-        .slice(0, filteredProjects.length)
-        .filter((el): el is HTMLDivElement => !!el)
+        const lines = gsap.utils.toArray<HTMLElement>('.line', linesContainerRef.current);
+        if (lines.length) {
+            gsap.set(lines, { autoAlpha: 0, y: -40 }); // Start lines above and invisible
 
-        // Set all items invisible/offscreen
-        gsap.set(els, { autoAlpha: 0, y: 60 })
-
-        // Create one ScrollTrigger per item so we can see markers
-        els.forEach(el => {
-            ScrollTrigger.create({
-                trigger: el,
-                start:  'top 90%',
-                end:    'bottom 10%',
-                // markers: true,           // ← see the lines!
-                onEnter: () =>
-                    gsap.to(el, {
-                        autoAlpha: 1,
-                        y:        0,
-                        duration: 0.7,
-                        ease:     'power3.out'
-                    }),
-                onLeaveBack: () =>
-                    gsap.to(el, {
-                        autoAlpha: 0,
-                        y:        60,
-                        duration: 0.5,
-                        ease:     'power3.inOut'
-                    }),
-                once: false
-            })
-        })
-        // ScrollTrigger.refresh()
-    }, [filteredProjects])
+            gsap.to(lines, {
+                autoAlpha: 1,
+                y: 0,
+                duration: 0.7,
+                ease: 'power2.out',
+                stagger: 0.05,
+                scrollTrigger: {
+                    trigger: linesContainerRef.current, // Trigger when the .lines container is in view
+                    start: "top 85%", // Start a bit before it's fully in view
+                    toggleActions: "play none none reverse",
+                    // markers: true, // For debugging the lines' trigger
+                }
+            });
+        }
 
 
+        const items = gsap.utils.toArray<HTMLElement>('.item', itemContainerRef.current);
+        if (!items.length) return;
 
-    // hover scale
+        gsap.set(items, { 
+            autoAlpha: 0, 
+            y: 100,
+            // These match the initial values in the SCSS, but setting here ensures GSAP knows the start
+            '--pseudo-opacity': 0,
+            '--pseudo-scale': 0.3,
+            '--before-translateX': '50%',
+            '--before-translateY': '50%',
+            '--after-translateX': '-50%',
+            '--after-translateY': '-50%',
+        });
+
+
+
+        // It's good practice to refresh *before* creating new ScrollTriggers
+        // if the layout might have changed.
+        ScrollTrigger.refresh(); 
+
+        const tl = gsap.timeline({
+            scrollTrigger: {
+                trigger: projectsContainerRef.current,
+                start: "top 70%",
+                end: "bottom 90%",
+                toggleActions: "play none none reverse",
+            }
+        });
+
+        tl.to(items, {
+            autoAlpha: 1,
+            y: 0,
+            duration: 0.8, 
+            ease: 'power3.out',
+            stagger: {
+                each: 0.2,
+                from: 'start'
+            }
+        }, "startItems"); 
+
+        tl.to(items, {
+            '--pseudo-opacity': 1,
+            '--pseudo-scale': 1,
+            '--before-translateX': '0%',
+            '--before-translateY': '0%',
+            '--after-translateX': '0%',
+            '--after-translateY': '0%',
+            duration: 0.7, 
+            ease: 'circ.out', 
+            stagger: {
+                each: 0.2, // Same stagger.each as items for synchronization
+                from: 'start'
+            }
+        }, "startItems+=0.35");
+
+        return () => {
+            if (tl.scrollTrigger) {
+                tl.scrollTrigger.kill();
+            }
+            tl.kill();
+        };
+
+    }, { scope: projectsContainerRef, dependencies: [filteredProjects, isReadyForScrollTrigger] });
+
+
+    // Hover effects (your existing logic is fine)
     const handleMouseEnter = (i: number) => {
-        gsap.to(itemRefs.current[i], { scale: 1.03, duration: 0.2, ease: 'power1.out' });
+        if (itemRefs.current[i]) {
+            gsap.to(itemRefs.current[i], { scale: 1.03, duration: 0.2, ease: 'power1.out' });
+        }
     };
     const handleMouseLeave = (i: number) => {
-        gsap.to(itemRefs.current[i], { scale: 1, duration: 0.2, ease: 'power1.in' });
+         if (itemRefs.current[i]) {
+            gsap.to(itemRefs.current[i], { scale: 1, duration: 0.2, ease: 'power1.in' });
+        }
     };
-  return (
-    <div className="projects-comp">
-        <div className="lines">
-            {Array.from({ length: 18 }).map((_, i) => (
-            <div className="line" key={i}></div>
-            ))}
-        </div>
-        <h1 className='proj_title'>
-            Projects
-        </h1>
 
-        {/* <div className="proj_search_area">
-            <div className="search_pool">
-            <SearchInput value={search} onChange={handleOnChange} />
+
+    return (
+        <div className="projects-comp" ref={projectsContainerRef}>
+            <div className="lines" ref={linesContainerRef}> 
+                {Array.from({ length: 18 }).map((_, i) => (
+                <div className="line" key={i}></div>
+                ))}
             </div>
-        </div> */}
+            <h1 className='proj_title'>
+                Projects
+            </h1>
 
-        <div className="item_projects">
-            {filteredProjects.length > 0 ? (
-                filteredProjects.map((p, i) => (
-                    <div
-                        key={p.id}
-                        className="item flex"
-                        ref={el => {
-                            itemRefs.current[i] = el;
-                        }}
-                        onMouseEnter={() => handleMouseEnter(i)}
-                        onMouseLeave={() => handleMouseLeave(i)}
-                    >
-                        <div className="it_ls">
-                            <h3 className="tit_ls">{p.title}</h3>
-                            <div className="tech_stack">
-                                <h3 className="tit_st">Tech Stack</h3>
-                                <div className="list_stacks">
-                                    {p.techStack?.map((icon, idx) => (
-                                        <div key={idx}>{icon}</div>
-                                    ))}
+            {/* <div className="proj_search_area">
+                <div className="search_pool">
+                <SearchInput value={search} onChange={handleOnChange} />
+                </div>
+            </div> */}
+
+            <div className="item_projects" ref={itemContainerRef}>
+                {filteredProjects.length > 0 ? (
+                    filteredProjects.map((p, i) => (
+                        <div
+                            key={p.id}
+                            className="item flex"
+                            ref={el => {
+                                itemRefs.current[i] = el;
+                            }}
+                            onMouseEnter={() => handleMouseEnter(i)}
+                            onMouseLeave={() => handleMouseLeave(i)}
+                        >
+                            <div className="it_ls">
+                                <h3 className="tit_ls">{p.title}</h3>
+                                <div className="tech_stack">
+                                    <h3 className="tit_st">Tech Stack</h3>
+                                    <div className="list_stacks">
+                                        {p.techStack?.map((icon, idx) => (
+                                            <div key={idx}>{icon}</div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="it_rs">
+                                <img
+                                    src={p.imageUrl}
+                                    alt={`${p.title} screenshot`}
+                                />
+                                <div className="after">
+                                    <svg width="54" height="55" viewBox="0 0 54 55" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path fillRule="evenodd" clipRule="evenodd" d="M33.9329 4.01172C33.9329 5.73672 35.3329 7.13672 37.0579 7.13672H47.4454V17.5242C47.4454 18.353 47.7746 19.1479 48.3607 19.7339C48.9467 20.32 49.7416 20.6492 50.5704 20.6492C51.3992 20.6492 52.194 20.32 52.7801 19.7339C53.3661 19.1479 53.6954 18.353 53.6954 17.5242V4.01172C53.6954 3.18292 53.3661 2.38806 52.7801 1.80201C52.194 1.21596 51.3992 0.886719 50.5704 0.886719H37.0579C36.2291 0.886719 35.4342 1.21596 34.8482 1.80201C34.2621 2.38806 33.9329 3.18292 33.9329 4.01172ZM50.5704 34.5159C49.7416 34.5159 48.9467 34.8451 48.3607 35.4312C47.7746 36.0172 47.4454 36.8121 47.4454 37.6409V48.0284H37.0579C36.2291 48.0284 35.4342 48.3576 34.8482 48.9437C34.2621 49.5297 33.9329 50.3246 33.9329 51.1534C33.9329 51.9822 34.2621 52.777 34.8482 53.3631C35.4342 53.9491 36.2291 54.2784 37.0579 54.2784H50.5704C51.3992 54.2784 52.194 53.9491 52.7801 53.3631C53.3661 52.777 53.6954 51.9822 53.6954 51.1534V37.6409C53.6954 36.8121 53.3661 36.0172 52.7801 35.4312C52.194 34.8451 51.3992 34.5159 50.5704 34.5159ZM3.42871 34.5159C4.25751 34.5159 5.05237 34.8451 5.63842 35.4312C6.22447 36.0172 6.55371 36.8121 6.55371 37.6409V48.0284H16.9412C17.77 48.0284 18.5649 48.3576 19.1509 48.9437C19.737 49.5297 20.0662 50.3246 20.0662 51.1534C20.0662 51.9822 19.737 52.777 19.1509 53.3631C18.5649 53.9491 17.77 54.2784 16.9412 54.2784H3.42871C2.59991 54.2784 1.80505 53.9491 1.219 53.3631C0.632951 52.777 0.303711 51.9822 0.303711 51.1534V37.6409C0.303711 36.8121 0.632951 36.0172 1.219 35.4312C1.80505 34.8451 2.59991 34.5159 3.42871 34.5159ZM20.0662 4.01172C20.0662 4.84052 19.737 5.63538 19.1509 6.22143C18.5649 6.80748 17.77 7.13672 16.9412 7.13672H6.55371V17.5242C6.55371 18.353 6.22447 19.1479 5.63842 19.7339C5.05237 20.32 4.25751 20.6492 3.42871 20.6492C2.59991 20.6492 1.80505 20.32 1.219 19.7339C0.632951 19.1479 0.303711 18.353 0.303711 17.5242V4.01172C0.303711 3.18292 0.632951 2.38806 1.219 1.80201C1.80505 1.21596 2.59991 0.886719 3.42871 0.886719H16.9412C17.77 0.886719 18.5649 1.21596 19.1509 1.80201C19.737 2.38806 20.0662 3.18292 20.0662 4.01172Z" fill="white"/>
+                                    </svg>
+
                                 </div>
                             </div>
                         </div>
-                        <div className="it_rs">
-                            <img
-                                src={p.imageUrl}
-                                alt={`${p.title} screenshot`}
-                            />
-                            <div className="after">
-                                <svg width="54" height="55" viewBox="0 0 54 55" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path fillRule="evenodd" clipRule="evenodd" d="M33.9329 4.01172C33.9329 5.73672 35.3329 7.13672 37.0579 7.13672H47.4454V17.5242C47.4454 18.353 47.7746 19.1479 48.3607 19.7339C48.9467 20.32 49.7416 20.6492 50.5704 20.6492C51.3992 20.6492 52.194 20.32 52.7801 19.7339C53.3661 19.1479 53.6954 18.353 53.6954 17.5242V4.01172C53.6954 3.18292 53.3661 2.38806 52.7801 1.80201C52.194 1.21596 51.3992 0.886719 50.5704 0.886719H37.0579C36.2291 0.886719 35.4342 1.21596 34.8482 1.80201C34.2621 2.38806 33.9329 3.18292 33.9329 4.01172ZM50.5704 34.5159C49.7416 34.5159 48.9467 34.8451 48.3607 35.4312C47.7746 36.0172 47.4454 36.8121 47.4454 37.6409V48.0284H37.0579C36.2291 48.0284 35.4342 48.3576 34.8482 48.9437C34.2621 49.5297 33.9329 50.3246 33.9329 51.1534C33.9329 51.9822 34.2621 52.777 34.8482 53.3631C35.4342 53.9491 36.2291 54.2784 37.0579 54.2784H50.5704C51.3992 54.2784 52.194 53.9491 52.7801 53.3631C53.3661 52.777 53.6954 51.9822 53.6954 51.1534V37.6409C53.6954 36.8121 53.3661 36.0172 52.7801 35.4312C52.194 34.8451 51.3992 34.5159 50.5704 34.5159ZM3.42871 34.5159C4.25751 34.5159 5.05237 34.8451 5.63842 35.4312C6.22447 36.0172 6.55371 36.8121 6.55371 37.6409V48.0284H16.9412C17.77 48.0284 18.5649 48.3576 19.1509 48.9437C19.737 49.5297 20.0662 50.3246 20.0662 51.1534C20.0662 51.9822 19.737 52.777 19.1509 53.3631C18.5649 53.9491 17.77 54.2784 16.9412 54.2784H3.42871C2.59991 54.2784 1.80505 53.9491 1.219 53.3631C0.632951 52.777 0.303711 51.9822 0.303711 51.1534V37.6409C0.303711 36.8121 0.632951 36.0172 1.219 35.4312C1.80505 34.8451 2.59991 34.5159 3.42871 34.5159ZM20.0662 4.01172C20.0662 4.84052 19.737 5.63538 19.1509 6.22143C18.5649 6.80748 17.77 7.13672 16.9412 7.13672H6.55371V17.5242C6.55371 18.353 6.22447 19.1479 5.63842 19.7339C5.05237 20.32 4.25751 20.6492 3.42871 20.6492C2.59991 20.6492 1.80505 20.32 1.219 19.7339C0.632951 19.1479 0.303711 18.353 0.303711 17.5242V4.01172C0.303711 3.18292 0.632951 2.38806 1.219 1.80201C1.80505 1.21596 2.59991 0.886719 3.42871 0.886719H16.9412C17.77 0.886719 18.5649 1.21596 19.1509 1.80201C19.737 2.38806 20.0662 3.18292 20.0662 4.01172Z" fill="white"/>
-                                </svg>
-
-                            </div>
-                        </div>
-                    </div>
-                ))
-                ) : (
-                    <p className="text-center text-gray-400">No projects match “{search}”.</p>
-                )
-            }
+                    ))
+                    ) : (
+                        <p className="text-center text-gray-400">No projects match “{search}”.</p>
+                    )
+                }
+            </div>
         </div>
-    </div>
-  );
+    );
 };
 
 export default Projects;

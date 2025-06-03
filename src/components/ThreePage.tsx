@@ -1,3 +1,4 @@
+import { useGSAP } from '@gsap/react';
 import { Environment, GradientTexture, MeshTransmissionMaterial, OrbitControls } from '@react-three/drei';
 import { Canvas, useThree } from '@react-three/fiber'
 import gsap from 'gsap';
@@ -8,8 +9,8 @@ import * as THREE from 'three'
 
 interface SceneProps {
   containerRef: React.RefObject<any>;
-  leftTitleRef: React.RefObject<HTMLDivElement>;
-  rightTitleRef: React.RefObject<HTMLDivElement>;
+  leftTitleRef: React.RefObject<HTMLDivElement | null>;
+  rightTitleRef: React.RefObject<HTMLDivElement | null>;
 }
 
 function OuterBox() {
@@ -107,86 +108,37 @@ const Scene: React.FC<SceneProps> = ({ containerRef, leftTitleRef, rightTitleRef
     const ringCurve = usePerfectRing(zoomEnd, Math.PI / 6, 300);
     const proxy     = useRef({ t: 0 });
 
-    useEffect(() => {
-        gsap.registerPlugin(ScrollTrigger);
-
-
+    // Use the useGSAP hook for better context and cleanup
+    useGSAP(() => {
         const tl = gsap.timeline({
             scrollTrigger: {
-                trigger: containerRef.current,
+                trigger: containerRef.current, // This is .three_page-comp
                 start: 'top top',
-                end: '+=300%',
+                // The pin will make the page scrollable for 300% of the viewport height
+                // while this element is pinned.
+                end: '+=300%', 
                 scrub: 1,
-                pin: true,
-                pinSpacing: false,
-                pinType: 'fixed',
-                // markers: true,
+                pin: true, 
+                // pinSpacing: true, // This is the default and usually correct
+                // markers: true, // Keep for debugging
             }
         });
 
-        gsap.set([leftTitleRef.current, rightTitleRef.current],{
-            display:'normal'
-        })
-
-        // PHASE 0: fade in titles immediately
-        tl.from(leftTitleRef.current, {
-            opacity: 0,
-            y:        -50,
-            duration: 0.3
-        }, 0);
-        tl.from(rightTitleRef.current, {
-            opacity: 0,
-            y:        50,
-            duration: 0.3
-        }, 0);
-
-        // PHASE 1: Zoom — slide titles apart slightly
-        tl.to(leftTitleRef.current, {
-            x:        -100,
-            opacity: 0.8,
-            ease:     'power1.out',
-            duration: 0.4
-        }, 0);
-        tl.to(rightTitleRef.current, {
-            x:         100,
-            opacity:  0.8,
-            ease:      'power1.out',
-            duration:   0.4
-        }, 0);
-
-        // PHASE 2: Orbit — fade titles away
-        tl.to([leftTitleRef.current, rightTitleRef.current], {
-            opacity: 0,
-            y:        ({ index }: any) => index === 0 ? -20 : 20,
-            ease:     'power1.in',
-            duration: 0.4
-        }, 0.4);
-
-        // ── Phase 1: Zoom out (0→40%)
-        tl.to(camera.position, {
-            x:        zoomEnd.x,
-            y:        zoomEnd.y,
-            z:        zoomEnd.z,
-            ease:     'power1.inOut',
-            duration: 0.4,
-            onUpdate: () => camera.lookAt(0, 0, 0),
-        }, 0);
-
-        // ── Phase 2: Slanted ring orbit (40→100%)
-        tl.to(proxy.current, {
-        t:        1,
-        ease:     'none',
-        duration: 0.6,
-        onUpdate: () => {
+        // The rest of your timeline logic is great and can stay the same
+        gsap.set([leftTitleRef.current, rightTitleRef.current], { display: 'normal' });
+        tl.from(leftTitleRef.current, { opacity: 0, y: -50, duration: 0.3 }, 0);
+        tl.from(rightTitleRef.current, { opacity: 0, y: 50, duration: 0.3 }, 0);
+        tl.to(leftTitleRef.current, { x: -100, opacity: 0.8, ease: 'power1.out', duration: 0.4 }, 0);
+        tl.to(rightTitleRef.current, { x: 100, opacity: 0.8, ease: 'power1.out', duration: 0.4 }, 0);
+        tl.to([leftTitleRef.current, rightTitleRef.current], { opacity: 0, y: ({ index }: any) => index === 0 ? -20 : 20, ease: 'power1.in', duration: 0.4 }, 0.4);
+        tl.to(camera.position, { x: zoomEnd.x, y: zoomEnd.y, z: zoomEnd.z, ease: 'power1.inOut', duration: 0.4, onUpdate: () => camera.lookAt(0, 0, 0) }, 0);
+        tl.to(proxy.current, { t: 1, ease: 'none', duration: 0.6, onUpdate: () => {
             const pos = ringCurve.getPoint(proxy.current.t);
             camera.position.copy(pos);
             camera.lookAt(0, 0, 0);
-        }
-        }, 0.3);
+        }}, 0.3);
 
-
-        return () => ScrollTrigger.getAll().forEach(st => st.kill());
-    }, [camera, containerRef, ringCurve, zoomEnd]);
+    }, { scope: containerRef }); // Scope animations to the container
 
     return(
         <>
@@ -231,9 +183,10 @@ const Scene: React.FC<SceneProps> = ({ containerRef, leftTitleRef, rightTitleRef
 }
 
 const ThreePage = () => {
-    const containerRef = useRef(null)
-    const leftTitleRef = useRef<HTMLDivElement>(null);
-    const rightTitleRef= useRef<HTMLDivElement>(null);
+    
+    const threePageCompRef = useRef<HTMLDivElement | null>(null); // Ref for the element to be pinned
+    const leftTitleRef = useRef<HTMLDivElement | null>(null);
+    const rightTitleRef = useRef<HTMLDivElement | null>(null);
 
     useLayoutEffect(() => {
         gsap.set([leftTitleRef.current,rightTitleRef.current],{
@@ -242,32 +195,31 @@ const ThreePage = () => {
     },[])
 
     return (
-        <>
-        <div className="three-wrapper">
+        // This wrapper no longer needs a massive fixed height. Its height will be
+        // determined by its content (100vh) + the space created by the pin.
+        <div className="three-wrapper"> 
+            {/* This is the element that will be pinned and scrolled through */}
             <div 
-                ref={containerRef} 
+                ref={threePageCompRef} 
                 className='three_page-comp' 
-                style={{ position: 'relative', height: '100vh' }}
-
+                style={{ position: 'relative', height: '100vh', width: '100%' }} // Ensure it takes up viewport
             >
                 <div ref={leftTitleRef} className="title_lt_side">
-                    <h1> Aspring Web <br/> Developer </h1>
-                    <h1 className='font-bold absolute'> Aspring Web <br/> Developer </h1>
+                    <h1>Aspiring Web <br/> Developer</h1>
+                    <h1 className='font-bold absolute'>Aspiring Web <br/> Developer</h1>
                 </div>
                 <div ref={rightTitleRef} className="title_rt_side">
-                    <h1> Aspring Software <br/> Engineer </h1>
-                    <h1 className='font-bold absolute'> Aspring Software <br/> Engineer </h1>
+                    <h1>Aspiring Software <br/> Engineer</h1>
+                    <h1 className='font-bold absolute'>Aspiring Software <br/> Engineer</h1>
                 </div>
                 <Canvas camera={{ position:[1.10,-1.10,1.10] }} shadows gl={{ antialias: true }}>
-                    <Scene containerRef={containerRef} leftTitleRef={leftTitleRef} rightTitleRef={rightTitleRef}/>
-                    {/* <OrbitControls/> */}
+                    {/* Pass the ref of the element to be pinned */}
+                    <Scene containerRef={threePageCompRef} leftTitleRef={leftTitleRef} rightTitleRef={rightTitleRef}/>
                 </Canvas>
-
             </div>
         </div>
-            {/* <div style={{ height: '300vh' }} /> */}
-        </>
-    )
+    );
+
 }
 
 export default ThreePage
