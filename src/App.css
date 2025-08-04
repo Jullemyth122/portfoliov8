@@ -24,6 +24,7 @@ body {
 }
 
 .header_comp {
+  width: 100%;
   height: 60px;
   position: fixed;
   /* background: #ffffffb0; */
@@ -41,10 +42,73 @@ body {
   }
 }
 
+
+/* ─── Responsive tweaks for Header ─── */
+@media (max-width: 768px) {
+  .header_comp {
+    height: auto;
+    /* let it grow if it wraps */
+    border-bottom: 1px solid #000;
+
+    ul {
+      /* ensure vertical spacing if elements wrap */
+      padding-top: 0.5rem;
+      padding-bottom: 0.5rem;
+      gap: 0.5rem;
+      /* small gap between wrapped lines */
+    }
+
+    /* shrink the owner name on small screens */
+    .owner_name h1 {
+      font-size: 1rem;
+      /* ~16px */
+      padding: 0.25rem 0.5rem;
+      /* less padding */
+    }
+
+    /* shrink the music title text on small screens */
+    .soundtrip .italic {
+      font-size: 0.75rem;
+      /* ~12px */
+    }
+
+    /* reduce the left/right padding on the audio widget too */
+    .soundtrip {
+      padding: 0.25rem 0.5rem;
+      /* instead of px-5 py-1 */
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .header_comp {
+    ul {
+      flex-direction: column;
+      /* stack everything vertically if it’s super-tight */
+      align-items: flex-start;
+    }
+
+    .owner_name {
+      width: 100%;
+      text-align: left;
+      padding-left: 0.5rem;
+      padding-right: 0.5rem;
+    }
+
+    .soundtrip {
+      width: 100%;
+      justify-content: flex-start;
+      padding-left: 0.5rem;
+      padding-right: 0.5rem;
+      margin-top: 0.25rem;
+    }
+  }
+}
+
 .three-wrapper {
   position: relative;
   /* total scrollable height = pin-distance (300vh) + viewport (100vh) */
-  /* height: 400vh; */
+  height: 400vh;
 }
 
 
@@ -105,207 +169,27 @@ canvas {
   padding: 0;
 }
 
-.projects-comp {
-  min-height: 100vh;
-  padding: 20px;
-  background: white;
-  /* scroll-snap-type: y proximity; */
+.contact-comp {
+  /* padding: 30px 15px; */
 
-  /* z-index: 100; */
-  .lines {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: space-evenly;
-    gap: 10px;
-
-    .line {
-      width: 15px;
-      height: 40px;
-      background: black;
-
-      &:nth-child(even) {
-        background: #4a86ff;
-      }
-    }
-
-  }
-
-  .proj_title {
-    font-size: 30px;
-    padding: 7.5px;
-    padding-top: 50px;
-  }
-
-  .proj_search_area {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 10px;
-
-    .search-input {
-      width: 200px;
-      padding: 7px 14px;
-      font-size: 17px;
-      font-family: 'Arial Rounded MT Bold', Arial, sans-serif;
-      border: none;
-      border-radius: 24px;
-      background: linear-gradient(90deg, #fff564 0%, #fffbe8 100%);
-      box-shadow: 0 2px 4px 0 rgba(228, 207, 45, 0.615), 0 0 0 0px #ffe066 inset;
-      outline: none;
-      color: #444;
-      transition: box-shadow 0.2s;
-
-      &::placeholder {
-        color: #bdb76b;
-        font-style: italic;
-        letter-spacing: 0.03em;
-      }
-
-      &:focus {
-        box-shadow: 0 2px 12px 0 rgba(228, 207, 45, 0.615), 0 0 0 2px #ffe066 inset;
-      }
-    }
-  }
-
-  .item_projects {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(30vw, 1fr));
-    gap: 1.5rem;
+  .contact-container {
+    border-radius: 15px;
     padding: 10px;
 
-    .item {
-      --pseudo-opacity: 0;
-      --pseudo-scale: 0.3;
-      
-      // Start ::before from bottom-right-ish, moving to its final bottom-left
-      --before-translateX: 50%; 
-      --before-translateY: 50%;
-      
-      // Start ::after from top-left-ish, moving to its final top-left
-      --after-translateX: -50%;
-      --after-translateY: -50%;
 
+    .text_grids {
+      h1 {
+        color: #000;
 
-      /* scroll-snap-align: start; */
-      display: grid;
-      grid-template-columns: 35% 65%;
-      position: relative;
-      overflow: hidden;
-      border: 1.5px solid #4C94FF;
-      width: 30vw;
-      /* height: 200px; */
-      border-radius: 10px;
-      box-shadow: 0px 4px 10px hsla(232, 100%, 65%, 0.349);
-      z-index: 2;
-      padding: 10px 15px;
-
-      /* opacity: 0; */
-      opacity: var(--pseudo-opacity);
-
-      /* transform: translateY(50px); */
-
-      &::after,
-      &::before {
-        z-index: -1;
-        content: '';
-        position: absolute;
-        width: 10vw;
-        height: 10vw;
-        background: linear-gradient(90deg,
-            #ffffff 0%,
-            #9a9fff 26%,
-            #71a2ff 55%,
-            #1966d8 82%,
-            #2054ff 100%);
-        border-radius: 50%;
-        filter: blur(6.5px);
-      }
-
-      &::after {
-        top: -25%;
-        left: -10%;
-        transform: scale(var(--pseudo-scale)) translate(var(--after-translateX), var(--after-translateY));
-
-      }
-
-      &::before {
-        bottom: -25%;
-        left: 25%;
-        transform: scale(var(--pseudo-scale)) translate(var(--before-translateX), var(--before-translateY));
-
-      }
-
-      .tit_ls {
-        font-size: 25px;
-      }
-
-      .list_stacks {
-        display: grid;
-        /* background: orange; */
-        grid-template-columns: repeat(3, auto);
-        gap: 7.5px;
-
-        svg,
-        img {
-          width: 35px;
-          height: 35px;
-          padding: 5px;
-          border: 1px solid #000;
-        }
-      }
-
-      .it_ls {
-        height: 100%;
-        /* background: orange; */
-
-      }
-
-      .it_rs {
-        width: 100%;
-        height: 100%;
-        padding: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        position: relative;
-
-        img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-
-        .after {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: calc(100% - 20px);
-          height: 0%;
-          position: absolute;
-          background: linear-gradient(90deg, #ffffff5e 0%, #4d89e2bb 100%);
-          overflow: hidden;
-          top: 50%;
-          left: 10px;
-          transition: all 0.75s cubic-bezier(0.445, 0.05, 0.55, 0.95);
-
-          svg {
-            cursor: pointer;
-            width: 25px;
-            height: 25px;
-          }
-        }
-
-        &:hover {
-          .after {
-            height: calc(100% - 20px);
-            /* left: calc(0% + 10px); */
-            top: calc(0% + 10px);
-          }
+        &.center-txt {
+          color: #000;
+          font-size: 30px;
         }
       }
 
     }
+
+    /* background: #555555; */
   }
 
 }

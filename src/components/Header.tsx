@@ -93,13 +93,12 @@ const Header: React.FC = () => {
     };
 
     return (
-        <div className="header_comp w-full" style={{ height: 60 }}>
-            <ul className="flex items-center justify-between h-full px-6">
-                <div className="owner_name flex items-center px-5 py-2 rounded-lg">
-                    <h1 className="text-black">Julle Myth Vicentillo</h1>
+        <div className="header_comp w-full">
+            <ul className="flex flex-wrap items-center justify-between h-full px-4 md:px-6">
+                <div className="owner_name flex items-center px-3 py-1.5 md:px-5 md:py-2 rounded-lg">
+                    <h1 className="text-black text-base md:text-lg">Julle Myth Vicentillo</h1>
                 </div>
-
-                <div className="soundtrip flex items-center px-5 py-1 space-x-4 rounded-lg">
+                <div className="soundtrip flex items-center px-3 py-1 md:px-5 md:py-1 space-x-3 md:space-x-4 rounded-lg">
                     <div className="flex items-end space-x-1 gap-1 p-2" style={{ width: 36 }}>
                         {barHeights.map((height, i) => (
                             <div
@@ -114,7 +113,7 @@ const Header: React.FC = () => {
                         ))}
                     </div>
 
-                    <div className="italic text-gray-600 text-sm whitespace-nowrap">
+                    <div className="italic text-gray-600 text-xs md:text-sm whitespace-nowrap">
                         {musicList[currentTrackIndex].title}
                     </div>
 

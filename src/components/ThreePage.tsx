@@ -121,6 +121,8 @@ const Scene: React.FC<SceneProps> = ({ containerRef, leftTitleRef, rightTitleRef
                 pin: true, 
                 // pinSpacing: true, // This is the default and usually correct
                 // markers: true, // Keep for debugging
+                // onEnter: () => console.log('ThreePage animation started'),
+                // onLeave: () => console.log('ThreePage animation ended'),
             }
         });
 
@@ -195,6 +197,7 @@ const ThreePage = () => {
     },[])
 
     return (
+        
         // This wrapper no longer needs a massive fixed height. Its height will be
         // determined by its content (100vh) + the space created by the pin.
         <div className="three-wrapper"> 
