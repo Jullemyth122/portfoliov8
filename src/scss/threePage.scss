@@ -1,0 +1,275 @@
+// ── Palette ───────────────────────────────────────────────────────────────────
+$bg:         #020409;
+$border:     rgba(55, 82, 255, 0.9);
+$border-dim: rgba(55, 82, 255, 0.35);
+$blue:       #3752ff;
+$blue-light: #9ab2ff;
+$accent:     #00e5ff;
+$text:       rgba(154, 178, 255, 0.90);
+$dim:        rgba(154, 178, 255, 0.65);
+$sys-dim:    rgba(154, 178, 255, 0.75);
+
+// ── Breakpoints ───────────────────────────────────────────────────────────────
+$bp-md: 768px;
+$bp-sm: 480px;
+
+// ── Wrapper ───────────────────────────────────────────────────────────────────
+.three-wrapper {
+  background: $bg;
+}
+
+.three-page {
+  position: relative;
+  height: 100vh;
+  width: 100%;
+  background: $bg;
+  overflow: hidden;
+}
+
+// ── Overlay layers ────────────────────────────────────────────────────────────
+.three-page__scanlines {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.08) 0px,
+    rgba(0, 0, 0, 0.08) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+.three-page__vignette {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+  background: radial-gradient(ellipse at 50% 50%, transparent 20%, rgba(2, 4, 9, 0.93) 100%);
+}
+
+// ── Corner brackets ───────────────────────────────────────────────────────────
+.three-page__corner {
+  pointer-events: none;
+  position: absolute;
+  z-index: 11;
+  width: 44px;
+  height: 44px;
+
+  @media (max-width: $bp-sm) {
+    width: 28px;
+    height: 28px;
+  }
+
+  &--tl {
+    top: 20px;
+    left: 20px;
+    border-top: 1.5px solid $border;
+    border-left: 1.5px solid $border;
+
+    @media (max-width: $bp-sm) {
+      top: 12px;
+      left: 12px;
+    }
+  }
+
+  &--tr {
+    top: 20px;
+    right: 20px;
+    border-top: 1.5px solid $border;
+    border-right: 1.5px solid $border;
+
+    @media (max-width: $bp-sm) {
+      top: 12px;
+      right: 12px;
+    }
+  }
+
+  &--bl {
+    bottom: 20px;
+    left: 20px;
+    border-bottom: 1.5px solid $border;
+    border-left: 1.5px solid $border;
+
+    @media (max-width: $bp-sm) {
+      bottom: 12px;
+      left: 12px;
+    }
+  }
+
+  &--br {
+    bottom: 20px;
+    right: 20px;
+    border-bottom: 1.5px solid $border;
+    border-right: 1.5px solid $border;
+
+    @media (max-width: $bp-sm) {
+      bottom: 12px;
+      right: 12px;
+    }
+  }
+}
+
+// ── Top system tags ───────────────────────────────────────────────────────────
+.three-page__sys-tags {
+  pointer-events: none;
+  position: absolute;
+  top: 24px;
+  left: 0;
+  right: 0;
+  z-index: 12;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 24px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: $sys-dim;
+
+  @media (max-width: $bp-md) {
+    gap: 12px;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    top: 16px;
+  }
+
+  @media (max-width: $bp-sm) {
+    // Collapse to a single centered tag on small screens
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 0 20px;
+    top: 14px;
+    line-height: 1.6;
+  }
+
+  &-sep {
+    color: $blue;
+
+    @media (max-width: $bp-sm) {
+      display: none;
+    }
+  }
+
+  &-item {
+    @media (max-width: $bp-sm) {
+      &--hide-sm {
+        display: none;
+      }
+    }
+  }
+}
+
+// ── Side titles ───────────────────────────────────────────────────────────────
+.three-page__title {
+  position: absolute;
+  top: 50%;
+  z-index: 13;
+  opacity: 0;
+  margin-top: -2.5em;
+
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(16px, 2.8vw, 38px);
+    font-weight: 400;
+    color: $text;
+    line-height: 1.3;
+    margin: 0;
+    letter-spacing: -0.01em;
+    text-shadow: 0 0 24px rgba(55, 82, 255, 0.5);
+
+    @media (max-width: $bp-sm) {
+      font-size: clamp(13px, 4vw, 20px);
+    }
+  }
+
+  &--left {
+    left: 10vw;
+
+    @media (max-width: $bp-sm) {
+      left: 16px;
+    }
+  }
+
+  &--right {
+    right: 10vw;
+    text-align: right;
+
+    h1 {
+      text-align: right;
+    }
+
+    @media (max-width: $bp-sm) {
+      right: 16px;
+    }
+  }
+}
+
+// ── Bottom bar ────────────────────────────────────────────────────────────────
+.three-page__bottom-bar {
+  pointer-events: none;
+  position: absolute;
+  bottom: 24px;
+  left: 0;
+  right: 0;
+  z-index: 12;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 40px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: $dim;
+
+  @media (max-width: $bp-md) {
+    padding: 0 24px;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    bottom: 18px;
+  }
+
+  @media (max-width: $bp-sm) {
+    padding: 0 16px;
+    bottom: 14px;
+    font-size: 8px;
+    letter-spacing: 0.08em;
+  }
+
+  &-scroll {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+
+    // On very small screens, hide arrow text, keep icon
+    @media (max-width: $bp-sm) {
+      flex-direction: column;
+      gap: 2px;
+      align-items: flex-start;
+    }
+  }
+
+  &-name {
+    @media (max-width: $bp-sm) {
+      // Break the name into two lines naturally via letter-spacing reduction
+      letter-spacing: 0.04em;
+    }
+  }
+
+  &-live {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  &-live-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: $accent;
+    box-shadow: 0 0 10px $accent, 0 0 20px rgba(0, 229, 255, 0.4);
+    flex-shrink: 0;
+  }
+}

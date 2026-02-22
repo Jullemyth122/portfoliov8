@@ -1,0 +1,320 @@
+// ── Palette ───────────────────────────────────────────────────────────────────
+$bg: #020409;
+$border: rgba(55, 82, 255, 0.35);
+$blue: #3752ff;
+$blue-light: #9ab2ff;
+$accent: #00e5ff;
+$text: rgba(154, 178, 255, 0.85);
+$dim: rgba(154, 178, 255, 0.45);
+
+// ── Breakpoints ───────────────────────────────────────────────────────────────
+$bp-md: 768px;
+$bp-sm: 480px;
+
+// ── Keyframes ─────────────────────────────────────────────────────────────────
+@keyframes hdr-dot-beat {
+
+    0%,
+    100% {
+        box-shadow: 0 0 6px #00e5ff, 0 0 14px rgba(0, 229, 255, 0.3);
+    }
+
+    50% {
+        box-shadow: 0 0 12px #00e5ff, 0 0 28px rgba(0, 229, 255, 0.6);
+    }
+}
+
+@keyframes hdr-slide-in {
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+// ── Header ────────────────────────────────────────────────────────────────────
+.header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 28px;
+    background: rgba(2, 4, 9, 0.82);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid $border;
+    box-shadow: 0 1px 32px rgba(0, 0, 0, 0.6);
+
+    @media (max-width: $bp-sm) {
+        padding: 0 14px;
+    }
+
+    // ── Right bracket accent ───────────────────────────────────────────────────
+    &__bracket-right {
+        position: absolute;
+        right: 10px;
+        top: 8px;
+        width: 10px;
+        height: 10px;
+        border-top: 1px solid rgba(55, 82, 255, 0.4);
+        border-right: 1px solid rgba(55, 82, 255, 0.4);
+    }
+}
+
+// ── Left: brand ───────────────────────────────────────────────────────────────
+.header__brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+
+    @media (max-width: $bp-sm) {
+        gap: 8px;
+    }
+
+    &-bracket {
+        width: 16px;
+        height: 16px;
+        border-top: 1.5px solid $blue;
+        border-left: 1.5px solid $blue;
+        flex-shrink: 0;
+
+        @media (max-width: $bp-sm) {
+            width: 12px;
+            height: 12px;
+        }
+    }
+
+    &-name {
+        font-family: 'Syne', sans-serif;
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        color: $text;
+        text-transform: uppercase;
+
+        @media (max-width: $bp-md) {
+            font-size: 12px;
+        }
+
+        @media (max-width: $bp-sm) {
+            // Hide last name on very small screens
+            font-size: 11px;
+            letter-spacing: 0.02em;
+        }
+    }
+
+    &-pip {
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        background: $blue;
+        box-shadow: 0 0 8px $blue;
+        flex-shrink: 0;
+
+        @media (max-width: $bp-sm) {
+            display: none;
+        }
+    }
+
+    &-tag {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 9px;
+        letter-spacing: 0.18em;
+        color: rgba(55, 82, 255, 0.55);
+        text-transform: uppercase;
+
+        @media (max-width: $bp-md) {
+            display: none;
+        }
+    }
+}
+
+// ── Center: nav ───────────────────────────────────────────────────────────────
+.header__nav {
+    display: flex;
+    gap: 32px;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+
+    @media (max-width: $bp-md) {
+        display: none;
+    }
+
+    &-link {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 10px;
+        letter-spacing: 0.16em;
+        color: $dim;
+        text-decoration: none;
+        text-transform: uppercase;
+        transition: color 0.18s, border-bottom-color 0.18s;
+        padding-bottom: 2px;
+        border-bottom: 1px solid transparent;
+
+        &:hover {
+            color: #fff;
+            border-bottom-color: $blue;
+        }
+    }
+}
+
+// ── Right: music player ───────────────────────────────────────────────────────
+.header__player {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 12px;
+    border-radius: 6px;
+    border: 1px solid $border;
+    background: rgba(55, 82, 255, 0.06);
+    flex-shrink: 0;
+
+    @media (max-width: $bp-sm) {
+        gap: 6px;
+        padding: 5px 8px;
+    }
+
+    &-divider {
+        width: 1px;
+        height: 20px;
+        background: $border;
+        flex-shrink: 0;
+    }
+}
+
+// ── EQ bars ───────────────────────────────────────────────────────────────────
+.header__eq {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 18px; // MAX_HEIGHT
+
+    @media (max-width: $bp-sm) {
+        display: none;
+    }
+
+    &-bar {
+        width: 3px;
+        border-radius: 2px;
+        background: linear-gradient(to top, $blue, $accent);
+        transition: height 0.13s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+}
+
+// ── Track name ────────────────────────────────────────────────────────────────
+.header__track {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: $dim;
+    transition: color 0.3s;
+    max-width: 160px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    animation: hdr-slide-in 0.35s ease both;
+
+    @media (max-width: $bp-md) {
+        max-width: 100px;
+    }
+
+    @media (max-width: $bp-sm) {
+        display: none;
+    }
+}
+
+// ── Control buttons ───────────────────────────────────────────────────────────
+.hdr-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: $blue-light;
+    padding: 5px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.15s, background 0.15s;
+
+    &:hover {
+        color: #fff;
+        background: rgba(55, 82, 255, 0.18);
+    }
+}
+
+.hdr-play {
+    background: rgba(55, 82, 255, 0.25);
+    border: 1px solid rgba(55, 82, 255, 0.6);
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: $blue-light;
+    transition: all 0.18s;
+    flex-shrink: 0;
+
+    &:hover {
+        background: rgba(55, 82, 255, 0.55);
+        border-color: $blue-light;
+        color: #fff;
+    }
+}
+
+// ── Live indicator ────────────────────────────────────────────────────────────
+.header__live {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    transition: color 0.3s;
+
+    @media (max-width: $bp-sm) {
+
+        // Only show the dot on small screens, hide the LIVE/IDLE text
+        .header__live-label {
+            display: none;
+        }
+    }
+
+    &--playing {
+        color: $accent;
+    }
+
+    &--idle {
+        color: $dim;
+    }
+
+    &-dot {
+        display: inline-block;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        transition: background 0.3s;
+        flex-shrink: 0;
+
+        &--playing {
+            background: $accent;
+            animation: hdr-dot-beat 1.2s ease-in-out infinite;
+        }
+
+        &--idle {
+            background: rgba(154, 178, 255, 0.3);
+        }
+    }
+}

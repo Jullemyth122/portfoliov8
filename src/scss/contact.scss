@@ -1,260 +1,561 @@
-@import url('https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap');
 
-$bg: #fafcff;
-$blue-light: #d7e3ff;
-$blue-mid: #7a8cff;
-$blue-dark: #2e3ab1;
-$txt: #111;
-$radius: 1rem;
-$dash: 2px;
+// ── Palette — exact match to ThreePage.tsx ───────────────────────────────────
+$bg:         #020409;
+$card-bg:    #060d1f;
+$blue:       #3752ff;
+$blue-light: #9ab2ff;
+$blue-mid:   #2a71ff;
+$glow:       #297eff;
+$accent:     #00e5ff;
+$txt:        #c8d8ff;
+$txt-dim:    #7a8aaa;
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
+// Gradient border via pseudo-element — no neon glow
+@mixin gradient-border {
+    position: relative;
+    border: none;
+    // Inner padding compensates for the 1px pseudo border
+    &::before, &::after { box-sizing: border-box; }
+}
+
+@mixin glow-text($col: $accent) {
+    color: $col;
+    text-shadow: 0 0 10px rgba($col, 0.7), 0 0 30px rgba($col, 0.3);
+}
+
+// ── Section shell ─────────────────────────────────────────────────────────────
 .contact-section {
     position: relative;
-    padding: 5rem 1rem;
-    background: $bg;
-    font-family: 'Source Code Pro', monospace;
+    padding: 6rem 1.5rem 5rem;
+    background: $bg !important;
+    font-family: 'Share Tech Mono', monospace;
     overflow: hidden;
     color: $txt;
+    min-height: 100vh;
 
-    // ==== Blurred background blobs ====
+    // Radial grid canvas — sits behind everything
+    .grid-canvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 0;
+        pointer-events: none;
+        display: block;
+    }
+
+    // Scanline overlay — on top of canvas, below content
     .bg-blobs {
         position: absolute;
         inset: 0;
-        z-index: -1;
+        z-index: 1;
+        pointer-events: none;
+        background: repeating-linear-gradient(
+            0deg,
+            transparent,
+            transparent 2px,
+            rgba($bg, 0.35) 2px,
+            rgba($bg, 0.35) 3px
+        );
+    }
+
+    // Dark vignette edges
+    &::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        pointer-events: none;
+        background:
+            radial-gradient(ellipse 100% 100% at 50% 50%, transparent 40%, rgba($bg, 0.75) 100%);
+    }
+
+    // ── HUD corner brackets ───────────────────────────────────────────────
+    .hud-corner {
+        position: absolute;
+        width: 24px;
+        height: 24px;
+        z-index: 10;
         pointer-events: none;
 
-        .blob {
-            position: absolute;
-            border-radius: 50%;
-            filter: blur(180px);
-            mix-blend-mode: screen;
-            opacity: 0.8;
-            animation: float 8s ease-in-out infinite alternate;
-        }
-
-        .blob-a {
-            width: 60vmin;
-            height: 60vmin;
-            background: $blue-light;
-            top: -20%;
-            left: 10%;
-        }
-
-        .blob-b {
-            width: 70vmin;
-            height: 70vmin;
-            background: $blue-mid;
-            top: 50%;
-            right: -25%;
-            animation-delay: 2s;
-        }
-
-        .blob-c {
-            width: 50vmin;
-            height: 50vmin;
-            background: $blue-dark;
-            bottom: -25%;
-            left: 55%;
-            animation-delay: 4s;
-        }
+        &--tl { top: 1rem; left: 1rem;
+            border-top: 1.5px solid rgba($accent, 0.7);
+            border-left: 1.5px solid rgba($accent, 0.7); }
+        &--tr { top: 1rem; right: 1rem;
+            border-top: 1.5px solid rgba($accent, 0.7);
+            border-right: 1.5px solid rgba($accent, 0.7); }
+        &--bl { bottom: 1rem; left: 1rem;
+            border-bottom: 1.5px solid rgba($accent, 0.7);
+            border-left: 1.5px solid rgba($accent, 0.7); }
+        &--br { bottom: 1rem; right: 1rem;
+            border-bottom: 1.5px solid rgba($accent, 0.7);
+            border-right: 1.5px solid rgba($accent, 0.7); }
     }
 
-    @keyframes float {
-        0% {
-            transform: translate(0, 0) scale(1);
-        }
+    // ── System bar ────────────────────────────────────────────────────────
+    .sys-bar {
+        position: absolute;
+        top: 1rem;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        font-size: 0.58rem;
+        letter-spacing: 0.14em;
+        color: $txt-dim;
+        z-index: 10;
+        white-space: nowrap;
+        text-transform: uppercase;
 
-        50% {
-            transform: translate(20px, -30px) scale(1.1);
-        }
-
-        100% {
-            transform: translate(-20px, 20px) scale(1);
-        }
+        .sep { color: rgba($blue, 0.5); }
+        .hi  { color: $accent; opacity: 0.9; }
     }
 
-    // ==== Wrapper & Title ====
+    // ── Wrapper ────────────────────────────────────────────────────────────
     .contact-wrapper {
         position: relative;
-        z-index: 1;
-        max-width: 1000px;
+        z-index: 5;
+        max-width: 1080px;
         margin: 0 auto;
         text-align: center;
+    }
 
-        .contact-title {
-            font-size: 2.5rem;
-            margin-bottom: 3rem;
-            display: inline-block;
+    // ── Title ──────────────────────────────────────────────────────────────
+    .contact-title {
+        font-family: 'Rajdhani', sans-serif;
+        font-size: clamp(2rem, 5vw, 3.6rem);
+        font-weight: 700;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        margin-bottom: 0.4rem;
+        @include glow-text($accent);
+
+        span {
+            color: $blue-light;
+            text-shadow: 0 0 10px rgba($blue-light, 0.4);
+        }
+    }
+
+    .contact-subtitle {
+        font-size: 0.68rem;
+        letter-spacing: 0.24em;
+        color: $txt-dim;
+        margin-bottom: 3.5rem;
+        text-transform: uppercase;
+    }
+
+    // ── Card grid ─────────────────────────────────────────────────────────
+    .cards {
+        display: grid;
+        gap: 1.4rem;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+
+        .card {
             position: relative;
-            overflow: hidden;
+            // Gradient border: solid bg behind, gradient border via inset pseudo
+            background: rgba($card-bg, 0.82);
+            backdrop-filter: blur(22px);
+            -webkit-backdrop-filter: blur(22px);
+            border: 1px solid transparent;
+            // The gradient border trick using background-origin + clip
+            background-clip: padding-box;
+            padding: 2.2rem 2rem;
+            text-align: left;
+            overflow: visible; // allow pseudo to overflow for border
+            transition: transform 0.35s ease, background 0.35s ease;
 
+            // Gradient border ring — sits behind card content
+            &::before {
+                content: '';
+                position: absolute;
+                inset: -1px;
+                border-radius: inherit;
+                background: linear-gradient(
+                    140deg,
+                    rgba($blue-mid, 0.65) 0%,
+                    rgba($accent, 0.12)  30%,
+                    rgba($blue,   0.06)  55%,
+                    rgba($blue-mid, 0.5) 80%,
+                    rgba($accent, 0.18) 100%
+                );
+                z-index: -1;
+                transition: opacity 0.35s ease, background 0.35s ease;
+            }
+
+            // Subtle inner surface gradient (not glowing, just depth)
             &::after {
                 content: '';
                 position: absolute;
-                bottom: -0.5rem;
-                left: 0;
-                width: 100%;
-                height: 2px;
-                background: linear-gradient(90deg, $blue-dark, $blue-mid, $blue-dark);
-                background-size: 200% 100%;
-                animation: gradient-move 3s linear infinite;
-            }
-        }
-
-        @keyframes gradient-move {
-            0% {
-                background-position: 0% 0;
+                inset: 0;
+                background: linear-gradient(
+                    160deg,
+                    rgba($blue-mid, 0.06) 0%,
+                    transparent 50%,
+                    rgba($accent, 0.03) 100%
+                );
+                pointer-events: none;
+                z-index: 0;
             }
 
-            100% {
-                background-position: 200% 0;
-            }
-        }
+            // All direct children sit above the inner gradient
+            > * { position: relative; z-index: 1; }
 
-        // ==== Card Grid ====
-        .cards {
-            display: grid;
-            gap: 2rem;
-            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-            perspective: 1000px;
-
-            .card {
-                background: rgba(255, 255, 255, 0.85);
-                backdrop-filter: blur(14px);
-                border-radius: $radius;
-                padding: 2rem;
-                position: relative;
-                transform-style: preserve-3d;
-                transition: transform 0.5s ease, box-shadow 0.5s ease;
-                box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
-
-                &:hover {
-                    transform: translateY(-10px) rotateX(5deg) rotateY(5deg);
-                    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-                }
+            &:hover {
+                background: rgba($card-bg, 0.9);
+                transform: translateY(-5px);
 
                 &::before {
-                    // z-index: 10;
-                    border-radius: 50%;
+                    background: linear-gradient(
+                        140deg,
+                        rgba($accent,   0.7)  0%,
+                        rgba($blue-mid, 0.35) 30%,
+                        rgba($blue,     0.12) 55%,
+                        rgba($blue-mid, 0.5)  80%,
+                        rgba($accent,   0.55) 100%
+                    );
+                }
+            }
+
+            // Bottom-right subtle gradient accent line
+            .card-corner-br {
+                position: absolute;
+                bottom: 0; right: 0;
+                width: 60px; height: 1px;
+                background: linear-gradient(to left, rgba($accent, 0.35), transparent);
+                z-index: 2;
+
+                &::after {
                     content: '';
                     position: absolute;
-                    top: -30%;
-                    left: -30%;
-                    width: 160%;
-                    height: 160%;
-                    background: linear-gradient(120deg, $blue-light 35%, $blue-mid 50%, $blue-dark 65%);
-                    transform: rotate(-20deg);
-                    opacity: 0.12;
-                    transition: opacity 0.4s;
+                    right: 0; bottom: 0;
+                    width: 1px; height: 60px;
+                    background: linear-gradient(to top, rgba($accent, 0.35), transparent);
+                }
+            }
+
+            // Rotating diamond icon — gradient fill, no neon glow
+            .card-graphic {
+                width: 30px;
+                height: 30px;
+                margin-bottom: 1.4rem;
+                position: relative;
+                animation: spin-slow 14s linear infinite;
+                flex-shrink: 0;
+                background: linear-gradient(
+                    135deg,
+                    rgba($blue-mid, 0.5) 0%,
+                    rgba($accent,   0.2) 50%,
+                    rgba($blue,     0.4) 100%
+                );
+                border: 1px solid rgba($accent, 0.22);
+
+                &::before {
+                    content: '';
+                    position: absolute;
+                    inset: 5px;
+                    background: linear-gradient(
+                        135deg,
+                        rgba($accent, 0.25) 0%,
+                        rgba($blue-mid, 0.1) 100%
+                    );
+                }
+            }
+
+            @keyframes spin-slow {
+                to { transform: rotate(360deg); }
+            }
+
+            // Card headings
+            h2 {
+                font-family: 'Rajdhani', sans-serif;
+                font-size: 1rem;
+                font-weight: 700;
+                letter-spacing: 0.2em;
+                text-transform: uppercase;
+                color: $blue-light;
+                margin-bottom: 1.2rem;
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+
+                &::before {
+                    content: '//';
+                    color: $accent;
+                    font-size: 0.75rem;
+                    opacity: 0.8;
+                }
+            }
+
+            // ── Info card ─────────────────────────────────────────────────
+            &.card-info {
+                p {
+                    margin: 0.5rem 0 0;
+
+                    &::before {
+                        display: block;
+                        font-size: 0.55rem;
+                        color: $txt-dim;
+                        letter-spacing: 0.2em;
+                        margin-bottom: 0.12rem;
+                        text-transform: uppercase;
+                    }
+
+                    &:nth-of-type(1)::before { content: 'EMAIL'; }
+                    &:nth-of-type(2)::before { content: 'PHONE'; }
                 }
 
-                &:hover::before {
-                    opacity: 0.25;
-                }
-
-                .card-graphic {
-                    width: 60px;
-                    height: 60px;
-                    margin: 0 auto 1.2rem;
-                    background: $blue-dark;
-                    clip-path: polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%);
-                    // clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
-                    transition: transform 0.5s;
-                }
-
-                &:hover .card-graphic {
-                    transform: rotate(20deg) translateZ(20px);
-                }
-
-                h2 {
-                    font-size: 1.3rem;
-                    margin-bottom: 1rem;
-                }
-
-                p,
                 a {
-                    font-size: 0.95rem;
+                    font-size: 0.85rem;
                     color: $txt;
                     text-decoration: none;
-                    text-align:left;
-                }
+                    display: block;
+                    transition: color 0.2s;
+                    letter-spacing: 0.03em;
 
+                    &:hover {
+                        color: $accent;
+                        text-shadow: 0 0 8px rgba($accent, 0.6);
+                    }
+                }
+            }
+
+            // ── Social card ───────────────────────────────────────────────
+            &.card-social {
                 .social-links {
                     display: flex;
-                    justify-content: center;
-                    gap: 1.5rem;
-                    margin-top: 0.75rem;
+                    gap: 1rem;
+                    flex-wrap: wrap;
 
                     a {
-                        display: inline-block;
-                        transition: transform 0.4s ease;
-                    }
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        width: 44px;
+                        height: 44px;
+                        position: relative;
+                        color: $blue-light;
+                        background: rgba($card-bg, 0.6);
+                        border: 1px solid transparent;
+                        transition: transform 0.25s ease, background 0.25s ease;
 
-                    img {
-                        width: 1.8rem;
-                    }
+                        // Gradient border ring
+                        &::before {
+                            content: '';
+                            position: absolute;
+                            inset: -1px;
+                            background: linear-gradient(
+                                135deg,
+                                rgba($blue-mid, 0.55) 0%,
+                                rgba($accent,   0.08) 50%,
+                                rgba($blue-mid, 0.45) 100%
+                            );
+                            z-index: -1;
+                            transition: background 0.25s ease;
+                        }
 
-                    a:hover {
-                        transform: translateY(-8px) scale(1.3) rotate(10deg);
+                        svg path { transition: fill 0.25s; fill: $blue-light; }
+
+                        &:hover {
+                            background: rgba($blue-mid, 0.12);
+                            transform: translateY(-4px) scale(1.1);
+                            color: $accent;
+
+                            &::before {
+                                background: linear-gradient(
+                                    135deg,
+                                    rgba($accent,   0.7) 0%,
+                                    rgba($blue-mid, 0.3) 50%,
+                                    rgba($accent,   0.5) 100%
+                                );
+                            }
+
+                            svg path { fill: $accent; }
+                        }
                     }
                 }
 
+                .social-label {
+                    margin-top: 1.2rem;
+                    font-size: 0.58rem;
+                    color: $txt-dim;
+                    letter-spacing: 0.2em;
+                }
+            }
+
+            // ── Form card ─────────────────────────────────────────────────
+            &.card-form {
                 form {
                     display: flex;
                     flex-direction: column;
-                    gap: 1.2rem;
+                    gap: 1rem;
+                }
 
-                    .field {
-                        position: relative;
+                .field {
+                    position: relative;
 
-                        input,
-                        textarea {
-                            width: 100%;
-                            padding: 0.8rem 1rem;
-                            border: none;
-                            border-radius: $radius / 2;
-                            background: #fff;
-                            box-shadow: inset 0 4px 12px rgba(0, 0, 0, 0.08);
-                            font: inherit;
-                            transition: box-shadow 0.4s, transform 0.3s;
-                        }
+                    label {
+                        display: block;
+                        font-size: 0.55rem;
+                        letter-spacing: 0.22em;
+                        color: $txt-dim;
+                        margin-bottom: 0.28rem;
+                        text-transform: uppercase;
+                    }
 
-                        input:focus,
-                        textarea:focus {
-                            box-shadow: inset 0 4px 16px rgba(0, 0, 0, 0.12), 0 0 8px $blue-mid;
-                            transform: scale(1.02);
-                            outline: none;
+                    input, textarea {
+                        width: 100%;
+                        box-sizing: border-box;
+                        background: linear-gradient(
+                            145deg,
+                            rgba(2, 8, 28, 0.85) 0%,
+                            rgba(4, 14, 40, 0.75) 100%
+                        );
+                        border: 1px solid rgba($blue-mid, 0.25);
+                        // Subtle inner gradient shimmer via background
+                        background-image: linear-gradient(
+                            145deg,
+                            rgba($blue-mid, 0.04) 0%,
+                            rgba(2, 8, 28, 0.9) 40%,
+                            rgba($blue, 0.03) 100%
+                        );
+                        color: $txt;
+                        font-family: 'Share Tech Mono', monospace;
+                        font-size: 0.85rem;
+                        padding: 0.65rem 0.85rem;
+                        outline: none;
+                        resize: none;
+                        border-radius: 0;
+                        transition: border-color 0.25s, background-image 0.25s;
+
+                        &::placeholder { color: rgba($txt-dim, 0.6); }
+
+                        &:focus {
+                            border-color: rgba($accent, 0.4);
+                            background-image: linear-gradient(
+                                145deg,
+                                rgba($accent,   0.05) 0%,
+                                rgba(2, 8, 28,  0.9)  40%,
+                                rgba($blue-mid, 0.04) 100%
+                            );
                         }
                     }
 
-                    button {
-                        align-self: flex-end;
-                        padding: 0.75rem 1.8rem;
-                        font: inherit;
-                        background: $blue-dark;
-                        color: #fff;
-                        border: none;
-                        border-radius: $radius / 2;
-                        cursor: pointer;
-                        transition: background 0.3s, transform 0.3s;
+                    // Blinking cursor tick
+                    &::after {
+                        content: '';
+                        position: absolute;
+                        bottom: 6px;
+                        right: 8px;
+                        width: 5px;
+                        height: 12px;
+                        background: $accent;
+                        opacity: 0;
+                        pointer-events: none;
                     }
 
-                    button:hover {
-                        background: $blue-mid;
-                        transform: translateY(-5px) scale(1.05);
+                    &:focus-within::after {
+                        opacity: 0.7;
+                        animation: blink 0.9s step-end infinite;
+                    }
+                }
+
+                @keyframes blink {
+                    50% { opacity: 0; }
+                }
+
+                button {
+                    align-self: flex-end;
+                    padding: 0.65rem 1.8rem;
+                    font-family: 'Rajdhani', sans-serif;
+                    font-size: 0.85rem;
+                    font-weight: 700;
+                    letter-spacing: 0.22em;
+                    text-transform: uppercase;
+                    // Gradient background (not neon border)
+                    background: linear-gradient(
+                        120deg,
+                        rgba($blue-mid, 0.18) 0%,
+                        rgba($accent,   0.08) 50%,
+                        rgba($blue-mid, 0.18) 100%
+                    );
+                    color: $accent;
+                    border: 1px solid rgba($accent, 0.3);
+                    cursor: pointer;
+                    position: relative;
+                    overflow: hidden;
+                    transition: color 0.3s, border-color 0.3s, transform 0.25s;
+
+                    // Sweep: gradient fill on hover
+                    &::before {
+                        content: '';
+                        position: absolute;
+                        inset: 0;
+                        background: linear-gradient(
+                            120deg,
+                            rgba($blue-mid, 0.0) 0%,
+                            rgba($accent,   1.0) 50%,
+                            rgba($blue-mid, 0.0) 100%
+                        );
+                        background-size: 200% 100%;
+                        background-position: 100% 0;
+                        transition: background-position 0.4s ease;
+                        z-index: 0;
+                    }
+
+                    span { position: relative; z-index: 1; }
+
+                    &:hover {
+                        color: $bg;
+                        border-color: rgba($accent, 0.6);
+                        transform: translateY(-3px);
+                        &::before { background-position: 0% 0; }
                     }
                 }
             }
+        }
+    }
+
+    // ── Bottom HUD bar ────────────────────────────────────────────────────
+    .contact-hud-bar {
+        position: relative;
+        z-index: 5;
+        margin-top: 3rem;
+        border-top: 1px solid rgba($blue, 0.2);
+        padding-top: 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.58rem;
+        letter-spacing: 0.18em;
+        color: $txt-dim;
+        text-transform: uppercase;
+
+        .live-dot {
+            display: inline-block;
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: radial-gradient(circle, $accent 0%, rgba($blue-mid, 0.6) 100%);
+            margin-right: 0.4rem;
+            animation: pulse-dot 1.8s ease-in-out infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50%       { opacity: 0.3; transform: scale(0.7); }
         }
     }
 }
 
-@media (max-width: 600px) {
+// ── Responsive ────────────────────────────────────────────────────────────────
+@media (max-width: 640px) {
     .contact-section {
-        padding: 3rem 1rem;
-
-        .contact-wrapper .contact-title {
-            font-size: 2rem;
-        }
+        padding: 4rem 1rem;
+        .contact-title { font-size: 1.8rem; }
+        .cards { grid-template-columns: 1fr; }
+        .contact-hud-bar { flex-direction: column; gap: 0.4rem; text-align: center; }
     }
 }
