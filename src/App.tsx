@@ -1,5 +1,3 @@
-import { useEffect, useState } from 'react'
-
 import './App.css'
 import Header from './components/Header'
 import ThreePage from './components/ThreePage'
@@ -14,11 +12,11 @@ function App() {
 
   return (
     <div>
-      <Cursor/>
-      <Header/>
-      <ThreePage/>
-      <Projects/>
-      <Contacts/>
+      <Cursor />
+      <Header />
+      <ThreePage />
+      <Projects />
+      <Contacts />
     </div>
   )
 }

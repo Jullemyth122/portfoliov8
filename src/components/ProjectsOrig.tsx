@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef, useEffect, useLayoutEffect } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import gsap from 'gsap';
 import ScrollTrigger from 'gsap/ScrollTrigger';
 import svg1 from './s1.svg';
@@ -8,21 +8,21 @@ import { ScrambleTextPlugin } from 'gsap/all';
 
 gsap.registerPlugin(ScrollTrigger, ScrambleTextPlugin);
 
-interface SearchInputProps {
-  value: string;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-}
+// interface SearchInputProps {
+//   value: string;
+//   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+// }
 
-const SearchInput: React.FC<SearchInputProps> = ({ value, onChange }) => (
-    <input
-        className="search-input w-full max-w-md p-2 text-base border border-gray-400 rounded-md focus:outline-none"
-        type="text"
-        placeholder="Search projects..."
-        value={value}
-        onChange={onChange}
-        aria-label="Search projects"
-    />
-);
+// const SearchInput: React.FC<SearchInputProps> = ({ value, onChange }) => (
+//     <input
+//         className="search-input w-full max-w-md p-2 text-base border border-gray-400 rounded-md focus:outline-none"
+//         type="text"
+//         placeholder="Search projects..."
+//         value={value}
+//         onChange={onChange}
+//         aria-label="Search projects"
+//     />
+// );
 
 interface Project {
     id: number;
@@ -318,9 +318,9 @@ const Projects: React.FC = () => {
     const [hasEntered, setHasEntered] = useState(false);
     const [isReadyForScrollTrigger, setIsReadyForScrollTrigger] = useState(false);
 
-    const handleOnChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setSearch(e.target.value);
-    };
+    // const handleOnChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    //     setSearch(e.target.value);
+    // };
 
     // Wait a brief moment for any parent layout changes before initializing ScrollTrigger
     useEffect(() => {
@@ -339,168 +339,166 @@ const Projects: React.FC = () => {
 
     useGSAP(
         () => {
-        if (
-            !isReadyForScrollTrigger ||
-            !itemContainerRef.current ||
-            !projectsContainerRef.current
-        ) {
-            return;
-        }
+            if (
+                !isReadyForScrollTrigger ||
+                !itemContainerRef.current ||
+                !projectsContainerRef.current
+            ) {
+                return;
+            }
 
-        const gridEl = itemContainerRef.current;
-        const projectItems = gsap.utils.toArray<HTMLElement>('.Xitem', gridEl);
-        if (!projectItems.length) return;
+            const gridEl = itemContainerRef.current;
+            const projectItems = gsap.utils.toArray<HTMLElement>('.Xitem', gridEl);
+            if (!projectItems.length) return;
 
-        // 1) INITIAL STATE for cards + pseudo-elements CSS variables
-        gsap.set(projectItems, {
-            autoAlpha: 0,
-            y: 100,
-            '--pseudo-opacity': 0,
-            '--pseudo-scale': 0.3,
-            '--before-translateX': '50%',
-            '--before-translateY': '50%',
-            '--after-translateX': '-50%',
-            '--after-translateY': '-50%',
-            '--pseudo-rotate': '0deg',
-            '--pseudo-blur': '6px',
-            '--pseudo-hue': '0deg',
-        });
+            // 1) INITIAL STATE for cards + pseudo-elements CSS variables
+            gsap.set(projectItems, {
+                autoAlpha: 0,
+                y: 100,
+                '--pseudo-opacity': 0,
+                '--pseudo-scale': 0.3,
+                '--before-translateX': '50%',
+                '--before-translateY': '50%',
+                '--after-translateX': '-50%',
+                '--after-translateY': '-50%',
+                '--pseudo-rotate': '0deg',
+                '--pseudo-blur': '6px',
+                '--pseudo-hue': '0deg',
+            });
 
-        // 2) INITIAL STATE FOR IMAGES
-        const baseImages = gsap.utils.toArray<HTMLImageElement>(
-            '.sc_lyr img:not(.o_img)',
-            gridEl
-        );
-        const overlayImages = gsap.utils.toArray<HTMLImageElement>(
-            '.sc_lyr .o_img',
-            gridEl
-        );
-        gsap.set(baseImages, {
-            clipPath: 'polygon(0% 100%, 100% 100%, 100% 100%, 0% 100%)',
-            scale: 1.5,
-            y: 20,
-        });
-        gsap.set(overlayImages, {
-            clipPath: 'polygon(0% 100%, 100% 100%, 100% 100%, 0% 100%)',
-            scale: 1,
-            y: 20,
-        });
+            // 2) INITIAL STATE FOR IMAGES
+            const baseImages = gsap.utils.toArray<HTMLImageElement>(
+                '.sc_lyr img:not(.o_img)',
+                gridEl
+            );
+            const overlayImages = gsap.utils.toArray<HTMLImageElement>(
+                '.sc_lyr .o_img',
+                gridEl
+            );
+            gsap.set(baseImages, {
+                clipPath: 'polygon(0% 100%, 100% 100%, 100% 100%, 0% 100%)',
+                scale: 1.5,
+                y: 20,
+            });
+            gsap.set(overlayImages, {
+                clipPath: 'polygon(0% 100%, 100% 100%, 100% 100%, 0% 100%)',
+                scale: 1,
+                y: 20,
+            });
 
-        // 3) COMPUTE columns & rows dynamically
-        const containerWidth = gridEl.offsetWidth;
-        const firstItemEl = projectItems[0] as HTMLElement;
-        const computedStyle = getComputedStyle(firstItemEl);
-        const itemWidth =
-            firstItemEl.offsetWidth + parseFloat(computedStyle.marginRight || '0');
-        let cols = Math.floor(containerWidth / itemWidth);
-        if (cols < 1) cols = 1;
-        const totalItems = projectItems.length;
-        const rows = Math.ceil(totalItems / cols);
+            // 3) COMPUTE columns & rows dynamically
+            const containerWidth = gridEl.offsetWidth;
+            const firstItemEl = projectItems[0] as HTMLElement;
+            const computedStyle = getComputedStyle(firstItemEl);
+            const itemWidth =
+                firstItemEl.offsetWidth + parseFloat(computedStyle.marginRight || '0');
+            let cols = Math.floor(containerWidth / itemWidth);
+            if (cols < 1) cols = 1;
+            const totalItems = projectItems.length;
+            const rows = Math.ceil(totalItems / cols);
 
-        // 4) Refresh ScrollTrigger
-        ScrollTrigger.refresh();
+            // 4) Refresh ScrollTrigger
+            ScrollTrigger.refresh();
 
-        // 5) BUILD scrollTrigger timeline
-        const tl = gsap.timeline({
-            scrollTrigger: {
-            trigger: projectsContainerRef.current,
-            start: 'top 70%',
-            end: 'bottom 90%',
-            toggleActions: 'play none none reverse',
-            onEnter: () => setHasEntered(true),
-            onLeaveBack: () => setHasEntered(false),
-            // markers: true,
-            },
-        });
+            // 5) BUILD scrollTrigger timeline
+            const tl = gsap.timeline({
+                scrollTrigger: {
+                trigger: projectsContainerRef.current,
+                start: 'top 70%',
+                end: 'bottom 90%',
+                toggleActions: 'play none none reverse',
+                onEnter: () => setHasEntered(true),
+                onLeaveBack: () => setHasEntered(false),
+                // markers: true,
+                },
+            });
 
-        // A) FADE-IN + SLIDE-UP each .Xitem
-        tl.to(
-            projectItems,
-            {
-            autoAlpha: 1,
-            y: 0,
-            duration: 0.95,
-            ease: 'power3.out',
-            stagger: {
-                grid: [rows, cols],
-                from: 'start',
-                axis: 'y',
-                each: 0.15,
-            },
-            },
-            'startItems'
-        );
+            // A) FADE-IN + SLIDE-UP each .Xitem
+            tl.to(
+                projectItems,
+                {
+                autoAlpha: 1,
+                y: 0,
+                duration: 0.95,
+                ease: 'power3.out',
+                stagger: {
+                    grid: [rows, cols],
+                    from: 'start',
+                    axis: 'y',
+                    each: 0.15,
+                },
+                },
+                'startItems'
+            );
 
-        // B) Animate pseudo-elements via CSS variables
-        tl.to(
-            projectItems,
-            {
-            '--pseudo-opacity': 1,
-            '--pseudo-scale': 1,
-            '--before-translateX': '0%',
-            '--before-translateY': '0%',
-            '--after-translateX': '0%',
-            '--after-translateY': '0%',
-            duration: 0.95,
-            ease: 'circ.out',
-            stagger: {
-                grid: [rows, cols],
-                from: 'start',
-                axis: 'y',
-                each: 0.15,
-            },
-            },
-            'startItems+=0.35'
-        );
+            // B) Animate pseudo-elements via CSS variables
+            tl.to(
+                projectItems,
+                {
+                '--pseudo-opacity': 1,
+                '--pseudo-scale': 1,
+                '--before-translateX': '0%',
+                '--before-translateY': '0%',
+                '--after-translateX': '0%',
+                '--after-translateY': '0%',
+                duration: 0.95,
+                ease: 'circ.out',
+                stagger: {
+                    grid: [rows, cols],
+                    from: 'start',
+                    axis: 'y',
+                    each: 0.15,
+                },
+                },
+                'startItems+=0.35'
+            );
 
-        // C) Reveal base images
-        tl.to(
-            baseImages,
-            {
-            clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
-            scale: 1,
-            y: 0,
-            duration: 1,
-            ease: 'sine.inOut',
-            stagger: {
-                grid: [rows, cols],
-                from: 'start',
-                axis: 'y',
-                each: 0.15,
-            },
-            },
-            'startItems+=0.15'
-        );
+            // C) Reveal base images
+            tl.to(
+                baseImages,
+                {
+                clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
+                scale: 1,
+                y: 0,
+                duration: 1,
+                ease: 'sine.inOut',
+                stagger: {
+                    grid: [rows, cols],
+                    from: 'start',
+                    axis: 'y',
+                    each: 0.15,
+                },
+                },
+                'startItems+=0.15'
+            );
 
-        // D) Reveal overlay images a bit later
-        tl.to(
-            overlayImages,
-            {
-            clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
-            scale: 1.5,
-            y: 0,
-            duration: 1,
-            ease: 'sine.inOut',
-            stagger: {
-                grid: [rows, cols],
-                from: 'start',
-                axis: 'y',
-                each: 0.15,
-            },
-            },
-            'startItems+=0.45'
-        );
+            // D) Reveal overlay images a bit later
+            tl.to(
+                overlayImages,
+                {
+                clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
+                scale: 1.5,
+                y: 0,
+                duration: 1,
+                ease: 'sine.inOut',
+                stagger: {
+                    grid: [rows, cols],
+                    from: 'start',
+                    axis: 'y',
+                    each: 0.15,
+                },
+                },
+                'startItems+=0.45'
+            );
 
-        // 7) CLEAN UP
-        return () => {
-            if (tl.scrollTrigger) tl.scrollTrigger.kill();
-            tl.kill();
-        };
+            // 7) CLEAN UP
+            return () => {
+                if (tl.scrollTrigger) tl.scrollTrigger.kill();
+                tl.kill();
+            };
         },
-        {
-        scope: projectsContainerRef,
-        dependencies: [filteredProjects, isReadyForScrollTrigger],
-        }
+        {   scope: projectsContainerRef,
+            dependencies: [filteredProjects, isReadyForScrollTrigger],}
     );
 
     const handleMouseEnter = (i: number) => {
@@ -526,17 +524,17 @@ const Projects: React.FC = () => {
 
         // (3) Animate gradient balls
         gsap.to(card, {
-        '--pseudo-scale': 2.5,
-        '--after-translateX': '15%',
-        '--after-translateY': '15%',
-        '--before-translateX': '20%',
-        '--before-translateY': '-10%',
-        '--pseudo-rotate': '+=180deg',
-        '--pseudo-blur': '20px',
-        '--pseudo-hue': '15deg',
-        duration: 1.0,
-        ease: 'sine.inOut',
-        overwrite: true,
+            '--pseudo-scale': 2.5,
+            '--after-translateX': '15%',
+            '--after-translateY': '15%',
+            '--before-translateX': '20%',
+            '--before-translateY': '-10%',
+            '--pseudo-rotate': '+=180deg',
+            '--pseudo-blur': '20px',
+            '--pseudo-hue': '15deg',
+            duration: 1.0,
+            ease: 'sine.inOut',
+            overwrite: true,
         });
 
         const titleEl = card.querySelector<HTMLHeadingElement>('.tit_ls');
@@ -583,29 +581,29 @@ const Projects: React.FC = () => {
         // (2) Hide overlay <img>
         const overlayImg = card.querySelector<HTMLImageElement>('.o_img');
         if (overlayImg) {
-        gsap.to(overlayImg, {
-            clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
-            scale: 1.5,
-            duration: 1,
-            filter: 'blur(0px) saturate(0)',
-            ease: 'sine.inOut',
-            overwrite: true,
-        });
+            gsap.to(overlayImg, {
+                clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
+                scale: 1.5,
+                duration: 1,
+                filter: 'blur(0px) saturate(0)',
+                ease: 'sine.inOut',
+                overwrite: true,
+            });
         }
 
         // (3) Reset gradient balls
         gsap.to(card, {
-        '--pseudo-scale': 1.0,
-        '--after-translateX': '-50%',
-        '--after-translateY': '-50%',
-        '--before-translateX': '50%',
-        '--before-translateY': '50%',
-        '--pseudo-rotate': '+=180deg', // spin half‐turn back
-        '--pseudo-blur': '6px',
-        '--pseudo-hue': '0deg',
-        duration: 1.0,
-        ease: 'sine.inOut',
-        overwrite: true,
+            '--pseudo-scale': 1.0,
+            '--after-translateX': '-50%',
+            '--after-translateY': '-50%',
+            '--before-translateX': '50%',
+            '--before-translateY': '50%',
+            '--pseudo-rotate': '+=180deg', // spin half‐turn back
+            '--pseudo-blur': '6px',
+            '--pseudo-hue': '0deg',
+            duration: 1.0,
+            ease: 'sine.inOut',
+            overwrite: true,
         });
     };
 

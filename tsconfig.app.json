@@ -22,5 +22,9 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": [
+    // stop TS from checking your experimental/orphan file
+    "src/components/ProjectsOrig.tsx"
+  ]
 }
