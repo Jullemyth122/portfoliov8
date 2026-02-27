@@ -25,21 +25,20 @@ const PALETTE = {
     accent: '#00e5ff',
 };
 
-// Shared scroll progress — 0 at top, 1 at bottom of scroll section
 const scrollState = { progress: 0 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// RING CONFIG — single source of truth used by BOTH OrbitRing and TrailingParticles
+// RING CONFIG
 // ─────────────────────────────────────────────────────────────────────────────
 interface RingCfg {
     radius: number;
     tiltX: number;
     tiltZ: number;
-    speed: number;         // rad/s angular velocity of the "head" pointer
+    speed: number;
     ringColor: string;
     scrollSpeedMult: number;
-    n: number;             // number of particle heads on this ring
-    trailLen: number;      // tail length in frames
+    n: number;
+    trailLen: number;
 }
 
 const RING_CFGS: RingCfg[] = [
@@ -53,6 +52,235 @@ const RING_CFGS: RingCfg[] = [
 const TOTAL_INSTANCES = RING_CFGS.reduce((s, c) => s + c.n * c.trailLen, 0);
 
 // ─────────────────────────────────────────────────────────────────────────────
+// NOISE — used by voxel terrain
+// ─────────────────────────────────────────────────────────────────────────────
+const _hash = (x: number, y: number) => {
+    const h = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453123;
+    return h - Math.floor(h);
+};
+const _lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+const _noise2D = (x: number, y: number) => {
+    const ix = Math.floor(x), iy = Math.floor(y);
+    const fx = x - ix, fy = y - iy;
+    const a = _hash(ix, iy), b = _hash(ix + 1, iy);
+    const c = _hash(ix, iy + 1), d = _hash(ix + 1, iy + 1);
+    const ux = fx * fx * (3.0 - 2.0 * fx);
+    const uy = fy * fy * (3.0 - 2.0 * fy);
+    return _lerp(_lerp(a, b, ux), _lerp(c, d, ux), uy);
+};
+const _fbm = (x: number, y: number) => {
+    let v = 0, a = 0.5, sx = x, sy = y;
+    for (let i = 0; i < 5; i++) {
+        v += a * _noise2D(sx, sy);
+        sx *= 2.0; sy *= 2.0; a *= 0.5;
+    }
+    return v;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VOXEL GRID — pre-computed once
+// ─────────────────────────────────────────────────────────────────────────────
+const GRID_SIZE = 150;
+const VOXEL_SIZE = 0.18;
+const GAP = 0.012;
+const MAX_HEIGHT = 20.0;
+const BASE_HEIGHT = 0.08;
+const FLAT_RADIUS = 2.0;
+const FFT_SIZE = 256;
+
+const _buildGrid = () => {
+    const offset = (GRID_SIZE * VOXEL_SIZE) / 2;
+    const voxels: { posX: number; posZ: number; r: number; shaped: number }[] = [];
+    for (let x = 0; x < GRID_SIZE; x++) {
+        for (let z = 0; z < GRID_SIZE; z++) {
+            const posX = x * VOXEL_SIZE - offset;
+            const posZ = z * VOXEL_SIZE - offset;
+            const r = Math.sqrt(posX * posX + posZ * posZ);
+            const noiseVal = _fbm(x * 0.04, z * 0.04);
+            let shaped: number;
+            if (noiseVal < 0.45) {
+                shaped = noiseVal * 0.08;
+            } else if (noiseVal < 0.6) {
+                const t = (noiseVal - 0.45) / 0.15;
+                shaped = 0.036 + t * t * 0.15;
+            } else {
+                const t = (noiseVal - 0.6) / 0.4;
+                shaped = 0.186 + Math.pow(t, 1.8) * 0.814;
+            }
+            voxels.push({ posX, posZ, r, shaped });
+        }
+    }
+    return voxels;
+};
+
+const VOXEL_GRID = _buildGrid();
+const MAX_RADIUS = Math.sqrt(2) * (GRID_SIZE * VOXEL_SIZE) / 2;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GLOBAL AUDIO STATE — populated by AudioReactiveFloor on first interaction
+// ─────────────────────────────────────────────────────────────────────────────
+let _ctx: AudioContext | null = null;
+let _analyser: AnalyserNode | null = null;
+let _connected = false;
+
+function _initAudio() {
+    if (_analyser) return;
+    try {
+        _ctx = new AudioContext();
+        _analyser = _ctx.createAnalyser();
+        _analyser.fftSize = FFT_SIZE;
+        _analyser.smoothingTimeConstant = 0.82;
+        const el = document.querySelector('audio') as HTMLAudioElement | null;
+        if (el && !_connected) {
+            const src = _ctx.createMediaElementSource(el);
+            src.connect(_analyser);
+            _analyser.connect(_ctx.destination);
+            _connected = true;
+        }
+    } catch { /* silent */ }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUDIO REACTIVE FLOOR — full voxel terrain from TerrainAudio.jsx
+// ─────────────────────────────────────────────────────────────────────────────
+function AudioReactiveFloor() {
+    const meshRef = useRef<THREE.InstancedMesh>(null!);
+    const dummy = useMemo(() => new THREE.Object3D(), []);
+    const freqData = useRef(new Uint8Array(FFT_SIZE / 2).fill(0));
+
+    // Geometry: pivot at bottom so scale.y grows upward
+    const geo = useMemo(() => {
+        const g = new THREE.BoxGeometry(VOXEL_SIZE - GAP, 1, VOXEL_SIZE - GAP);
+        g.translate(0, 0.5, 0);
+        return g;
+    }, []);
+
+    // Material: dark navy → deep blue → light sky blue / cyan
+    const mat = useMemo(() => {
+        const m = new THREE.MeshStandardNodeMaterial();
+
+        const deepColor = color('#03060f');
+        const midColor = color('#0a2a6e');
+        const peakColor = color('#7ed4f5');
+
+        const t = smoothstep(float(-6.5), float(MAX_HEIGHT * 0.5), positionWorld.y);
+        const midMix = smoothstep(float(0.0), float(0.4), t);
+        const pkMix = smoothstep(float(0.4), float(1.0), t);
+        m.colorNode = mix(mix(deepColor, midColor, midMix), peakColor, pkMix);
+
+        // Emissive drives bloom — electric cyan at peaks
+        m.emissiveNode = mix(
+            color('#000010'),
+            color('#00c8ff'),
+            smoothstep(float(0.1), float(0.3), t)
+        );
+
+        m.roughnessNode = float(0.5);
+        m.metalnessNode = float(0.8);
+        return m;
+    }, []);
+
+    useEffect(() => {
+        _initAudio();
+        const resume = () => {
+            _initAudio();
+            if (_ctx?.state === 'suspended') _ctx.resume();
+        };
+        document.addEventListener('click', resume, { once: true });
+        return () => document.removeEventListener('click', resume);
+    }, []);
+
+    useFrame(({ clock }) => {
+        if (!meshRef.current) return;
+        const time = clock.getElapsedTime();
+
+        // Read FFT or decay toward silence
+        if (_analyser) {
+            _analyser.getByteFrequencyData(freqData.current);
+        } else {
+            for (let i = 0; i < freqData.current.length; i++) {
+                freqData.current[i] = Math.max(0, freqData.current[i] - 4);
+            }
+        }
+
+        const bins = freqData.current;
+        const numBins = bins.length;
+
+        let totalEnergy = 0;
+        for (let i = 0; i < numBins; i++) totalEnergy += bins[i];
+        const avgEnergy = (totalEnergy / numBins) / 255;
+
+        for (let i = 0; i < VOXEL_GRID.length; i++) {
+            const { posX, posZ, r, shaped } = VOXEL_GRID[i];
+            let height: number;
+
+            if (r < FLAT_RADIUS) {
+                // Center zone — always flat
+                height = BASE_HEIGHT;
+
+            } else {
+                const radialOutward = Math.min(
+                    (r - FLAT_RADIUS) / (MAX_RADIUS - FLAT_RADIUS),
+                    1.0
+                );
+
+                // Spiral colosseum shape
+                const angle = Math.atan2(posZ, posX);
+                const spiralAngle = angle + (r * 0.15);
+
+                const majorPetal = Math.cos(spiralAngle * 10.0) * 10.5 + 0.5;
+                const minorPetal = Math.cos(spiralAngle * 100.0) * 0.5 + 0.5;
+                const petalShape = _lerp(majorPetal, minorPetal, radialOutward);
+
+                const growthCurve = Math.pow(radialOutward, 3.5);
+                const cliffWidth = 0.06 + (majorPetal * 0.004);
+                const terracedGrowth = growthCurve - (growthCurve % cliffWidth);
+                const dynamicGrowth = _lerp(growthCurve, terracedGrowth, 0.8);
+
+                const radialEnvelope = 0.15 + (1.8 + 2.0 * petalShape) * dynamicGrowth;
+
+                // Bass outside, treble inside
+                const binIdx = Math.floor((1.0 - radialOutward) * (numBins - 1));
+                const amp = bins[binIdx] / 255;
+                const audioScale = Math.pow(amp, 1.4);
+                const shapeFactor = Math.max(0.18, shaped);
+
+                // Ripples + grid interference
+                const ripple1 = Math.sin(r * 5.0 - time * 3.0) * 0.5 + 0.5;
+                const ripple2 = Math.sin(r * 0.85 - time * 1.5) * 0.5 + 0.5;
+                const ripple3 = Math.cos(r * 5.4 - time * 2.0) * 0.5 + 0.5;
+                const gridInterference = (Math.sin(posX * 2.5) * Math.cos(posZ * 2.5)) * 2.5 + 0.5;
+                const ripple = ripple1 * 0.4 + ripple2 * 0.2 + ripple3 * 0.2 + gridInterference * 0.2;
+                const rippleHeight = ripple * avgEnergy * 5.0 * radialEnvelope;
+
+                height = BASE_HEIGHT
+                    + shapeFactor * MAX_HEIGHT * audioScale * radialEnvelope
+                    + rippleHeight;
+            }
+
+            const finalHeight = Math.min(60.0, Math.max(BASE_HEIGHT, height));
+            dummy.position.set(posX, 0, posZ);
+            dummy.scale.set(1, finalHeight, 1);
+            dummy.updateMatrix();
+            meshRef.current.setMatrixAt(i, dummy.matrix);
+        }
+
+        meshRef.current.instanceMatrix.needsUpdate = true;
+    });
+
+    return (
+        <instancedMesh
+            ref={meshRef}
+            args={[geo, mat, VOXEL_GRID.length]}
+            position={[0, -3.5, 0]}
+            castShadow
+            receiveShadow
+            frustumCulled={true}
+        />
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // BLOOM POST PROCESSING
 // ─────────────────────────────────────────────────────────────────────────────
 function BloomPostProcessing() {
@@ -63,7 +291,7 @@ function BloomPostProcessing() {
         const renderer = gl as unknown as THREE.WebGPURenderer;
         const composer = new THREE.PostProcessing(renderer);
         const scenePass = pass(scene, camera);
-        const bloomPass = bloom(scenePass, 2.4, 0.5, 0.05);
+        const bloomPass = bloom(scenePass, 2.4, 0.5, 1.5);
         composer.outputNode = scenePass.add(bloomPass);
         composerRef.current = composer;
         return () => { composerRef.current = null; };
@@ -77,7 +305,7 @@ function BloomPostProcessing() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TRAILING PARTICLES — locked to ring paths
+// TRAILING PARTICLES
 // ─────────────────────────────────────────────────────────────────────────────
 type TrailBuf = { positions: Float32Array; head: number; filled: number };
 
@@ -94,20 +322,16 @@ function TrailingParticles() {
             side: THREE.DoubleSide,
         } as any);
         m.blending = THREE.AdditiveBlending;
-
         const colorify = Fn(() => {
             const distUV = uv().sub(vec2(0.5, 0.5)).length();
-            // Tighter, brighter core — very sharp falloff for "nasty" glow
             const alpha = smoothstep(float(0.5), float(0.02), distUV);
             const col = vec3(float(0.55), float(1.0), float(2.5));
             return vec4(col, alpha);
         });
-
         m.colorNode = colorify();
         return m;
     }, []);
 
-    // Pre-build rotation matrices from tilt config
     const ringMats = useMemo(() =>
         RING_CFGS.map(c => {
             const m = new THREE.Matrix4();
@@ -115,14 +339,12 @@ function TrailingParticles() {
             return m;
         }), []);
 
-    // Per-ring, per-particle head angle trackers
     const headAngles = useRef(
         RING_CFGS.map((cfg, ri) =>
             Array.from({ length: cfg.n }, (_, pi) => (pi / cfg.n) * Math.PI * 2 + ri * 1.3)
         )
     );
 
-    // Trail buffers
     const trailBufs = useRef<TrailBuf[][]>(
         RING_CFGS.map(cfg =>
             Array.from({ length: cfg.n }, () => ({
@@ -153,23 +375,14 @@ function TrailingParticles() {
             const ha = headAngles.current[ri];
             const bufs = trailBufs.current[ri];
 
-            // Ring radius wobble — same as OrbitRing breathing
             const breathe = 1.0 + 0.04 * Math.sin(t * 1.3 + ri * 0.9);
             const r = cfg.radius * scaleMult * breathe;
 
             for (let pi = 0; pi < cfg.n; pi++) {
-                // Advance head angle at the ring's own speed
                 ha[pi] += cfg.speed * delta * speedMult;
-
-                // Position on the ring's ellipse (circle, since torus is circular)
-                wp.set(
-                    Math.cos(ha[pi]) * r,
-                    0,
-                    Math.sin(ha[pi]) * r
-                );
+                wp.set(Math.cos(ha[pi]) * r, 0, Math.sin(ha[pi]) * r);
                 wp.applyMatrix4(om);
 
-                // Push to trail buffer
                 const buf = bufs[pi];
                 const h = buf.head;
                 buf.positions[h * 3 + 0] = wp.x;
@@ -178,7 +391,6 @@ function TrailingParticles() {
                 buf.head = (h + 1) % cfg.trailLen;
                 if (buf.filled < cfg.trailLen) buf.filled++;
 
-                // Render trail dots from newest to oldest
                 for (let age = 0; age < cfg.trailLen; age++) {
                     if (age >= buf.filled) {
                         dummy.scale.setScalar(0);
@@ -194,17 +406,15 @@ function TrailingParticles() {
                     const pz = buf.positions[ri2 * 3 + 2];
 
                     const life = 1.0 - age / cfg.trailLen;
-                    const lifeSq = life * life * life; // cubic falloff — sharp bright head
+                    const lifeSq = life * life * life;
                     const isHead = age === 0;
                     const pulse = isHead
                         ? 1.0 + 0.5 * Math.sin(t * 12.0 + ri * 2.3 + pi * 1.1)
                         : 1.0;
 
-                    const size = lifeSq * (isHead ? 0.30 : 0.13) * pulse;
-
                     dummy.position.set(px, py, pz);
                     dummy.lookAt(camPos);
-                    dummy.scale.setScalar(size);
+                    dummy.scale.setScalar(lifeSq * (isHead ? 0.30 : 0.13) * pulse);
                     dummy.updateMatrix();
                     mesh.setMatrixAt(idx, dummy.matrix);
                     idx++;
@@ -219,7 +429,7 @@ function TrailingParticles() {
         <instancedMesh
             ref={meshRef}
             args={[dotGeometry, dotMaterial, TOTAL_INSTANCES]}
-            frustumCulled={false}
+            frustumCulled={true}
         />
     );
 }
@@ -233,22 +443,20 @@ function OuterBox() {
     const edgeMat = useMemo(() => {
         const m = new THREE.LineBasicNodeMaterial();
         const n = mx_noise_float(positionWorld.mul(float(0.8)).add(vec3(sin(time.mul(0.4)), cos(time.mul(0.3)), time.mul(0.2))));
-        const edgeCol = mix(color(PALETTE.blueMid), color(PALETTE.accent), smoothstep(float(0.2), float(0.8), n.abs()));
-        m.colorNode = edgeCol;
+        m.colorNode = mix(color(PALETTE.blueMid), color(PALETTE.accent), smoothstep(float(0.2), float(0.8), n.abs()));
         return m;
     }, []);
 
     const faceMat = useMemo(() => {
         const m = new THREE.MeshBasicNodeMaterial();
         m.transparent = true;
-        m.depthWrite = false;
+        m.depthWrite = true;
         m.side = THREE.BackSide;
         m.blending = THREE.AdditiveBlending;
         const viewDir = normalize(cameraPosition.sub(positionLocal));
         const fresnel = pow(dot(normalLocal, viewDir).oneMinus(), float(2.0));
         const n = mx_noise_float(positionWorld.mul(float(1.4)).add(vec3(sin(time.mul(0.35)), cos(time.mul(0.25)), time.mul(0.18))));
-        const faceCol = mix(color(PALETTE.blue), color(PALETTE.accent), smoothstep(float(0.2), float(0.8), n.abs()));
-        m.colorNode = faceCol.mul(fresnel.mul(float(0.35)));
+        m.colorNode = mix(color(PALETTE.blue), color(PALETTE.accent), smoothstep(float(0.2), float(0.8), n.abs())).mul(fresnel.mul(float(0.35)));
         return m;
     }, []);
 
@@ -261,8 +469,7 @@ function OuterBox() {
         groupRef.current.position.y = Math.sin(clock.getElapsedTime() * 0.45) * 0.07;
         groupRef.current.rotation.y += 0.003 + sp * 0.025;
         groupRef.current.rotation.x += sp * 0.008;
-        const s = 1.0 + sp * 0.3;
-        groupRef.current.scale.setScalar(s);
+        groupRef.current.scale.setScalar(1.0 + sp * 0.3);
     });
 
     return (
@@ -281,10 +488,8 @@ function InnerCore() {
 
     const mat = useMemo(() => {
         const m = new THREE.MeshBasicNodeMaterial();
-        const p = positionWorld.mul(float(2.2));
-        const n = mx_noise_float(p.add(vec3(sin(time.mul(0.5)), cos(time.mul(0.35)), time.mul(0.25))));
-        const col = mix(color(PALETTE.blue), color(PALETTE.accent), smoothstep(float(0.2), float(0.85), n.abs()));
-        m.colorNode = col;
+        const n = mx_noise_float(positionWorld.mul(float(2.2)).add(vec3(sin(time.mul(0.5)), cos(time.mul(0.35)), time.mul(0.25))));
+        m.colorNode = mix(color(PALETTE.blue), color(PALETTE.accent), smoothstep(float(0.2), float(0.85), n.abs()));
         return m;
     }, []);
 
@@ -302,8 +507,7 @@ function InnerCore() {
         const sp = scrollState.progress;
         meshRef.current.rotation.y += 0.009 + sp * 0.06;
         meshRef.current.rotation.x += 0.005 + sp * 0.03;
-        const s = 1 + Math.sin(clock.getElapsedTime() * 1.4) * 0.05 + sp * 0.4;
-        meshRef.current.scale.setScalar(s);
+        meshRef.current.scale.setScalar(1 + Math.sin(clock.getElapsedTime() * 1.4) * 0.05 + sp * 0.4);
     });
 
     return (
@@ -314,10 +518,11 @@ function InnerCore() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ORBIT RING — now animated dramatically, driven by RING_CFGS
+// ORBIT RING
 // ─────────────────────────────────────────────────────────────────────────────
 function OrbitRing({ cfg, ringIndex }: { cfg: RingCfg; ringIndex: number }) {
     const meshRef = useRef<THREE.Mesh>(null!);
+    const ghostRef = useRef<THREE.Mesh>(null!);
 
     const mat = useMemo(() => {
         const m = new THREE.MeshBasicNodeMaterial();
@@ -326,32 +531,26 @@ function OrbitRing({ cfg, ringIndex }: { cfg: RingCfg; ringIndex: number }) {
         return m;
     }, [cfg.ringColor]);
 
-    // Build a secondary "ghost" ring that lags behind for depth
     const ghostMat = useMemo(() => {
         const m = new THREE.MeshBasicNodeMaterial();
         m.transparent = true;
-        m.colorNode = color(cfg.ringColor);
         m.blending = THREE.AdditiveBlending;
+        m.colorNode = color(cfg.ringColor);
         return m;
     }, [cfg.ringColor]);
 
     const torusGeo = useMemo(() => new THREE.TorusGeometry(cfg.radius, 0.009, 8, 160), [cfg.radius]);
     const ghostGeo = useMemo(() => new THREE.TorusGeometry(cfg.radius * 1.012, 0.004, 8, 160), [cfg.radius]);
 
-    const ghostRef = useRef<THREE.Mesh>(null!);
-
     useFrame(({ clock }) => {
         if (!meshRef.current) return;
         const sp = scrollState.progress;
         const t = clock.getElapsedTime();
 
-        // Dramatic wobble: tiltX oscillates, whole ring precesses
         const wobbleAmp = 0.08 + sp * 0.25;
         const wobbleFreq = 0.6 + ringIndex * 0.17;
         const tiltXDynamic = cfg.tiltX + Math.sin(t * wobbleFreq + ringIndex * 1.4) * wobbleAmp;
         const tiltZDynamic = cfg.tiltZ + Math.cos(t * wobbleFreq * 0.7 + ringIndex * 0.9) * wobbleAmp * 0.6;
-
-        // Slow axial precession on Y
         const precession = t * cfg.speed * 0.18 * (1 + sp * cfg.scrollSpeedMult * 3);
 
         meshRef.current.rotation.set(tiltXDynamic, precession, tiltZDynamic);
@@ -363,17 +562,15 @@ function OrbitRing({ cfg, ringIndex }: { cfg: RingCfg; ringIndex: number }) {
             );
         }
 
-        // Breathing scale
         const breathe = 1.0 + 0.04 * Math.sin(t * 1.3 + ringIndex * 0.9);
         const s = breathe * (1.0 + sp * 0.4);
         meshRef.current.scale.setScalar(s);
         if (ghostRef.current) ghostRef.current.scale.setScalar(s * 1.015);
 
-        // Opacity pulse — ring flickers with energy
         const baseOpacity = 0.22 + 0.10 * Math.sin(t * 1.4 + cfg.tiltX);
         const energyPulse = Math.pow(Math.abs(Math.sin(t * 2.2 + ringIndex)), 3) * 0.18;
         (mat as any).opacity = (baseOpacity + energyPulse) * (1 + sp * 1.2);
-        if (ghostMat) (ghostMat as any).opacity = ((baseOpacity + energyPulse) * 0.25) * (1 + sp * 1.2);
+        (ghostMat as any).opacity = (baseOpacity + energyPulse) * 0.25 * (1 + sp * 1.2);
     });
 
     return (
@@ -381,188 +578,6 @@ function OrbitRing({ cfg, ringIndex }: { cfg: RingCfg; ringIndex: number }) {
             <mesh ref={meshRef} geometry={torusGeo} material={mat} />
             <mesh ref={ghostRef} geometry={ghostGeo} material={ghostMat} />
         </>
-    );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// AUDIO-REACTIVE FLOOR
-// ─────────────────────────────────────────────────────────────────────────────
-const GW = 72; const GD = 72;
-const PW = 34; const PD = 34;
-const FLOOR_Y = -2.6;
-const INNER_R = 2.5;
-const OUTER_R = 5.5;
-
-let _ctx: AudioContext | null = null;
-let _analyser: AnalyserNode | null = null;
-let _connected = false;
-
-function initAudio() {
-    if (_analyser) return;
-    try {
-        _ctx = new AudioContext();
-        _analyser = _ctx.createAnalyser();
-        _analyser.fftSize = 512;
-        _analyser.smoothingTimeConstant = 0.75;
-        const el = document.querySelector('audio') as HTMLAudioElement | null;
-        if (el && !_connected) {
-            const src = _ctx.createMediaElementSource(el);
-            src.connect(_analyser);
-            _analyser.connect(_ctx.destination);
-            _connected = true;
-        }
-    } catch { /* silent */ }
-}
-
-function AudioReactiveFloor() {
-    const basePos = useRef<Float32Array | null>(null);
-
-    const waveGeo = useMemo(() => {
-        const g = new THREE.PlaneGeometry(PW, PD, GW, GD);
-        g.rotateX(-Math.PI / 2);
-        const arr = (g.attributes.position as THREE.BufferAttribute).array as Float32Array;
-        basePos.current = new Float32Array(arr);
-        const vc = g.attributes.position.count;
-        g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(vc * 3), 3));
-        return g;
-    }, []);
-
-    const gridGeo = useMemo(() => {
-        const g = new THREE.PlaneGeometry(PW, PD, GW, GD);
-        g.rotateX(-Math.PI / 2);
-        return g;
-    }, []);
-
-    const smoothed = useRef(new Float32Array(GW + 1).fill(0));
-    const beatRing = useRef(0);
-    const beatEnergy = useRef(0);
-    const prevBass = useRef(0);
-    const kickActive = useRef(false);
-    const kickAmp = useRef(0);
-
-    const waveMat = useMemo(() => {
-        const m = new THREE.MeshBasicNodeMaterial();
-        m.wireframe = true;
-        m.transparent = true;
-        m.depthWrite = false;
-        m.blending = THREE.AdditiveBlending;
-        m.vertexColors = true;
-        return m;
-    }, []);
-
-    const gridMat = useMemo(() => {
-        const m = new THREE.MeshBasicNodeMaterial();
-        m.wireframe = true;
-        m.transparent = true;
-        m.depthWrite = false;
-        m.blending = THREE.AdditiveBlending;
-        m.colorNode = color(PALETTE.blue);
-        (m as any).opacity = 0.08;
-        return m;
-    }, []);
-
-    useEffect(() => {
-        initAudio();
-        const resume = () => { initAudio(); if (_ctx?.state === 'suspended') _ctx.resume(); };
-        document.addEventListener('click', resume, { once: true });
-        return () => document.removeEventListener('click', resume);
-    }, []);
-
-    useFrame(({ clock }) => {
-        const t = clock.getElapsedTime();
-        const posAttr = waveGeo.attributes.position as THREE.BufferAttribute;
-        const colAttr = waveGeo.attributes.color as THREE.BufferAttribute;
-        const posArr = posAttr.array as Float32Array;
-        const colArr = colAttr.array as Float32Array;
-        const base = basePos.current!;
-
-        let fft: Uint8Array | null = null;
-        if (_analyser) {
-            fft = new Uint8Array(_analyser.frequencyBinCount);
-            _analyser.getByteFrequencyData(fft);
-        }
-
-        for (let c = 0; c <= GW; c++) {
-            let raw = 0;
-            if (fft && fft.length > 0) {
-                const bi = Math.floor(Math.pow(c / GW, 1.4) * (fft.length - 1));
-                raw = fft[bi] / 255;
-            } else {
-                raw =
-                    0.28 * Math.abs(Math.sin(c * 0.2 + t * 1.1)) +
-                    0.18 * Math.abs(Math.sin(c * 0.45 - t * 0.75)) +
-                    0.10 * Math.abs(Math.sin(c * 0.08 + t * 2.2));
-            }
-            smoothed.current[c] += (raw - smoothed.current[c]) * 0.20;
-        }
-
-        let bass = 0;
-        if (fft) {
-            for (let i = 0; i < 6; i++) bass += fft[i] / 255;
-            bass /= 6;
-        } else {
-            bass = 0.35 + 0.35 * Math.abs(Math.sin(t * 1.8));
-        }
-        const bassSmooth = prevBass.current * 0.8 + bass * 0.2;
-        if (bass > bassSmooth * 1.3 && bass > 0.35 && !kickActive.current) {
-            kickActive.current = true;
-            kickAmp.current = 1.0;
-            beatRing.current = 0.0;
-        }
-        prevBass.current = bassSmooth;
-
-        if (kickActive.current) {
-            beatRing.current += 0.025;
-            kickAmp.current *= 0.88;
-            if (kickAmp.current < 0.02) { kickActive.current = false; kickAmp.current = 0; }
-        }
-        beatEnergy.current = bass;
-
-        const maxH = 2.2;
-        const vpr = GW + 1;
-        const ringR = beatRing.current * (OUTER_R + 2);
-
-        for (let row = 0; row <= GD; row++) {
-            const rowNorm = row / GD;
-            const rowPhase = rowNorm * Math.PI * 3.0;
-            const tOff = t * 1.3;
-            for (let col = 0; col <= GW; col++) {
-                const i3 = (row * vpr + col) * 3;
-                const bx = base[i3];
-                const bz = base[i3 + 2];
-                const dxz = Math.sqrt(bx * bx + bz * bz);
-                const mask = Math.max(0, Math.min(1, (dxz - INNER_R) / (OUTER_R - INNER_R)));
-                const amp = smoothed.current[col];
-                const ripple = Math.sin(rowPhase - tOff + col * 0.14) * 0.35;
-                const fftH = amp * maxH * (0.65 + 0.35 * Math.max(0, ripple)) * mask;
-                const ringDist = Math.abs(dxz - ringR);
-                const ringW = 0.9;
-                const ringH = kickAmp.current * 1.6 * Math.max(0, 1.0 - ringDist / ringW) * mask;
-                const bassH = bass * 0.6 * mask * Math.pow(1.0 - Math.min(1, dxz / (OUTER_R + 2)), 1.5);
-                const disp = fftH + ringH + bassH;
-                posArr[i3] = bx;
-                posArr[i3 + 1] = disp;
-                posArr[i3 + 2] = bz;
-                const loud = Math.min(1, (fftH / maxH) * 1.4);
-                const ringGlow = Math.min(1, ringH * 1.2);
-                const rowFade = 0.5 + 0.5 * (1.0 - rowNorm * 0.7);
-                colArr[i3] = (0.05 + loud * 0.35 + ringGlow * 0.9) * rowFade;
-                colArr[i3 + 1] = (0.08 + loud * 0.65 + ringGlow * 0.9) * rowFade;
-                colArr[i3 + 2] = (0.28 + loud * 0.72 + ringGlow * 0.1) * rowFade;
-            }
-        }
-
-        waveGeo.computeVertexNormals();
-        posAttr.needsUpdate = true;
-        colAttr.needsUpdate = true;
-        (waveMat as any).opacity = 0.55 + beatEnergy.current * 0.45;
-    });
-
-    return (
-        <group position={[0, FLOOR_Y, 0]}>
-            <mesh geometry={gridGeo} material={gridMat} />
-            <mesh geometry={waveGeo} material={waveMat} />
-        </group>
     );
 }
 
@@ -602,9 +617,7 @@ function Scene({ containerRef, leftTitleRef, rightTitleRef }: SceneProps) {
                 end: '+=300%',
                 scrub: 1,
                 pin: true,
-                onUpdate: (self) => {
-                    scrollState.progress = self.progress;
-                },
+                onUpdate: (self) => { scrollState.progress = self.progress; },
             },
         });
 
@@ -640,14 +653,12 @@ function Scene({ containerRef, leftTitleRef, rightTitleRef }: SceneProps) {
             <spotLight intensity={0.4} position={[-5, 6, -8]} angle={Math.PI / 5} penumbra={1} color={PALETTE.blue} />
             <pointLight intensity={0.5} position={[0, -1, 0]} color={PALETTE.glow} distance={4} decay={2} />
 
-            {/* Trails follow rings — share exact same RING_CFGS */}
             <TrailingParticles />
             <AudioReactiveFloor />
 
-            {/* Orbit rings rendered from RING_CFGS so they match trails */}
-            {RING_CFGS.map((cfg, i) => (
+            {/* {RING_CFGS.map((cfg, i) => (
                 <OrbitRing key={i} cfg={cfg} ringIndex={i} />
-            ))}
+            ))} */}
 
             <OuterBox />
             <InnerCore />
@@ -671,19 +682,14 @@ const ThreePage: React.FC = () => {
         <div className="three-wrapper">
             <div ref={threePageCompRef} className="three-page">
 
-                {/* Scanlines */}
                 <div className="three-page__scanlines" />
-
-                {/* Vignette */}
                 <div className="three-page__vignette" />
 
-                {/* Corner brackets */}
                 <div className="three-page__corner three-page__corner--tl" />
                 <div className="three-page__corner three-page__corner--tr" />
                 <div className="three-page__corner three-page__corner--bl" />
                 <div className="three-page__corner three-page__corner--br" />
 
-                {/* Top system tags */}
                 <div className="three-page__sys-tags">
                     <span className="three-page__sys-tags-item">SYS::RENDER</span>
                     <span className="three-page__sys-tags-sep">●</span>
@@ -692,17 +698,14 @@ const ThreePage: React.FC = () => {
                     <span className="three-page__sys-tags-item three-page__sys-tags-item--hide-sm">GSAP / SCROLL</span>
                 </div>
 
-                {/* Left title */}
                 <div ref={leftTitleRef} className="three-page__title three-page__title--left">
                     <h1>Aspiring Web<br />Developer</h1>
                 </div>
 
-                {/* Right title */}
                 <div ref={rightTitleRef} className="three-page__title three-page__title--right">
                     <h1>Aspiring Software<br />Engineer</h1>
                 </div>
 
-                {/* Bottom bar */}
                 <div className="three-page__bottom-bar">
                     <span className="three-page__bottom-bar-scroll">SCROLL TO BEGIN ↓</span>
                     <span className="three-page__bottom-bar-name">XENEX ASHURA</span>
